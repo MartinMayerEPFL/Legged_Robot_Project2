@@ -49,9 +49,9 @@ class HopfNetwork():
   def __init__(self,
                 mu=1**2,                 # intrinsic amplitude, converges to sqrt(mu)
                 omega_swing=5*2*np.pi,   # frequency in swing phase (can edit)
-                omega_stance=2*2*np.pi,  # frequency in stance phase (can edit)
-                gait="PACE",             # Gait, can be TROT, WALK, PACE, BOUND, etc.
-                alpha=50,                # amplitude convergence factor
+                omega_stance=2*2*np.pi,  # frequency in stance phase (can edit)        ### 2.5 for bound and 2 for other modes
+                gait="BOUND",            # Gait, can be TROT, WALK, PACE, BOUND, etc.
+                alpha=5,                 # amplitude convergence factor                ### 5 or lower for bound and 5 or higher for other modes
                 coupling_strength=1,     # coefficient to multiply coupling matrix
                 couple=True,             # whether oscillators should be coupled
                 time_step=0.001,         # time step 
@@ -109,10 +109,10 @@ class HopfNetwork():
     
     self.PHI_walk = np.zeros((4,4)) # [TODO]
     #----Start Martin----# PAS SUR
-    self.PHI_walk = np.array([[0.0, -0.5, -0.25, 0.25],
-                     [0.5, 0.0, 0.25, 0.75],
-                     [0.25, -0.25, 0.0, 0.5],
-                     [-0.25, -0.75, -0.5, 0.0]])
+    self.PHI_walk = np.array([[0.0, -0.5, 0.25, -0.25],
+                     [0.5, 0.0, 0.75, 0.25],
+                     [-0.25, -0.75, 0.0, -0.5],
+                     [0.25, -0.25, 0.5, 0.0]])
     #----Fin Martin----#
 
     self.PHI_bound = np.zeros((4,4)) # [TODO]
@@ -211,7 +211,7 @@ class HopfNetwork():
         for j in range(4):
           if j != i:
             theta_dot += r_all[j] * self._coupling_strength * np.sin(
-              self.PHI[i, j] - (theta - theta_all[j])
+              self.PHI[i, j]*2*np.pi - (theta - theta_all[j])
             )
 
       # set X_dot[:,i]

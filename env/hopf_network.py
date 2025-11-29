@@ -194,7 +194,7 @@ class HopfNetwork():
       r, theta = X[:,i]
       # compute r_dot (Equation 6)
       r_dot = 0 # [TODO]
-      r_dot = self._alpha * (self._mu - r**2) * r
+      r_dot = (self._alpha * (self._mu - r**2) * r)
       # determine whether oscillator i is in swing or stance phase to set natural frequency omega_swing or omega_stance (see Section 3)
       theta_dot = 0 # [TODO]
       theta = theta % (2*np.pi)
@@ -211,6 +211,7 @@ class HopfNetwork():
         for j in range(4):
           if j != i:
             theta_dot += r_all[j] * self._coupling_strength * np.sin(
+              self.PHI[i, j]*2*np.pi - (theta - theta_all[j])
               self.PHI[i, j]*2*np.pi - (theta - theta_all[j])
             )
 

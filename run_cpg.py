@@ -65,13 +65,15 @@ env = QuadrupedGymEnv(render=True,              # visualize
 # initialize Hopf Network, supply gait
 cpg = HopfNetwork(time_step=TIME_STEP)
 
-TEST_STEPS = int(10 / (TIME_STEP))
+TEST_STEPS = int(5 / (TIME_STEP))
 t = np.arange(TEST_STEPS)*TIME_STEP
 
 # [TODO] initialize data structures to save CPG and robot states
 #---MartinStart---
 xs = np.zeros(1)
 zs = np.zeros(1)
+xs_hist = np.zeros((4, TEST_STEPS))
+zs_hist = np.zeros((4, TEST_STEPS))
 #---MartinEnd---
 
 
@@ -93,6 +95,8 @@ for j in range(TEST_STEPS):
 
   # get desired foot positions from CPG 
   xs,zs = cpg.update()
+  xs_hist[:, j] = xs
+  zs_hist[:, j] = zs
 
   # [TODO] get current motor angles and velocities for joint PD, see GetMotorAngles(), GetMotorVelocities() in quadruped.py
   #----Martin Start----#
@@ -159,7 +163,14 @@ for j in range(TEST_STEPS):
 #####################################################
 # [TODO] Create your plots
 
-# fig, xs = plt.subplots()
-# xs.plot(xs,)
-# xs.set_title('A single plot')
-
+plt.figure()
+leg_labels = ["FR", "FL", "RR", "RL"]
+for i in range(4):
+  plt.plot(t, xs_hist[i, :], label=f"{leg_labels[i]} x")
+  plt.plot(t, zs_hist[i, :], linestyle="--", label=f"{leg_labels[i]} z")
+plt.xlabel("Time [s]")
+plt.ylabel("Foot position (x and z) [m]")
+plt.title("Foot trajectories vs time")
+plt.legend()
+plt.tight_layout()
+plt.show()

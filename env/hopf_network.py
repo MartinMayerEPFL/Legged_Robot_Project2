@@ -50,7 +50,7 @@ class HopfNetwork():
                 mu=1**2,                 # intrinsic amplitude, converges to sqrt(mu)
                 omega_swing=5*2*np.pi,   # frequency in swing phase (can edit)
                 omega_stance=2*2*np.pi,  # frequency in stance phase (can edit)
-                gait="TROT",             # Gait, can be TROT, WALK, PACE, BOUND, etc.
+                gait="PACE",             # Gait, can be TROT, WALK, PACE, BOUND, etc.
                 alpha=50,                # amplitude convergence factor
                 coupling_strength=1,     # coefficient to multiply coupling matrix
                 couple=True,             # whether oscillators should be coupled
@@ -184,26 +184,44 @@ class HopfNetwork():
     X = self.X.copy()
     X_dot_prev = self.X_dot.copy() 
     X_dot = np.zeros((2,4))
+    r_all = X[0, :]
+    theta_all = X[1, :]
 
     # loop through each leg's oscillator
     for i in range(4):
       # get r_i, theta_i from X
       r, theta = 0, 0 # [TODO]
+      r, theta = X[:,i]
       # compute r_dot (Equation 6)
       r_dot = 0 # [TODO]
+      r_dot = self._alpha * (self._mu - r**2) * r
       # determine whether oscillator i is in swing or stance phase to set natural frequency omega_swing or omega_stance (see Section 3)
       theta_dot = 0 # [TODO]
-
+      theta = theta % (2*np.pi)
+      if 0 <= theta < np.pi:
+        # swing phase
+        theta_dot = self._omega_swing
+      else:
+        # stance phase
+        theta_dot = self._omega_stance
+  
       # loop through other oscillators to add coupling (Equation 7)
       if self._couple:
         theta_dot += 0 # [TODO]
+        for j in range(4):
+          if j != i:
+            theta_dot += r_all[j] * self._coupling_strength * np.sin(
+              self.PHI[i, j] - (theta - theta_all[j])
+            )
 
       # set X_dot[:,i]
       X_dot[:,i] = [r_dot, theta_dot]
 
     # integrate 
-    self.X = np.zeros((2,4)) # [TODO]
+    self.X = X + (X_dot_prev + X_dot) * self._dt / 2
     self.X_dot = X_dot
+
+
     # mod phase variables to keep between 0 and 2pi
     self.X[1,:] = self.X[1,:] % (2*np.pi)
 

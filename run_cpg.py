@@ -32,7 +32,7 @@
 
 import time
 import numpy as np
-import matplotlib
+import matplotlib as plt
 
 # adapt as needed for your system
 # from sys import platform
@@ -130,7 +130,7 @@ for j in range(TEST_STEPS):
       _, pos_leg_xyz = env.robot.ComputeJacobianAndPosition(i, leg_q)
       # Get current Jacobian and foot position in leg frame (see ComputeJacobianAndPosition() in quadruped.py)
       # [TODO] 
-      jacobian, pos_leg = env.robot.ComputeJacobianAndPosition(i, env.robot.GetMotorAngles())
+      jacobian, pos_leg = env.robot.ComputeJacobianAndPosition(i)
 
       # Get current foot velocity in leg frame (Equation 2)
       # [TODO]
@@ -151,14 +151,15 @@ for j in range(TEST_STEPS):
   env.step(action) 
 
   # [TODO] save any CPG or robot states
+  # xs = np.vstack((xs, cpg.())) 
+  # zs = np.vstack((zs, cpg.get_z()))
 
 ##################################################### 
 # PLOTS
 #####################################################
 # [TODO] Create your plots
 
-# example
-# fig = plt.figure()
-# plt.plot(t,joint_pos[1,:], label='FR thigh')
-# plt.legend()
-# plt.show()
+# fig, xs = plt.subplots()
+# xs.plot(xs,)
+# xs.set_title('A single plot')
+

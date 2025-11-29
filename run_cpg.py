@@ -115,9 +115,6 @@ for j in range(TEST_STEPS):
     leg_q = np.zeros(3) # [TODO]
     #----Martin Start----#
     leg_q =  env.robot.ComputeInverseKinematics(i, leg_xyz)
-    #leg_q(1) =  env.robot.ComputeInverseKinematics(1, leg_xyz)
-    #leg_q(2) =  env.robot.ComputeInverseKinematics(2, leg_xyz)
-    #leg_q(3) =  env.robot.ComputeInverseKinematics(3, leg_xyz)
     #----Martin end ----#
 
     # Add joint PD contribution to tau for leg i (Equation 4)
@@ -130,15 +127,15 @@ for j in range(TEST_STEPS):
     if ADD_CARTESIAN_PD:
       # Get desired xyz position in leg frame (use ComputeJacobianAndPosition with the joint angles you just found above)
       # [TODO]
-      _, pos_leg_xyz = env.robot.ComputeJacobianAndPosition(leg_q)
+      _, pos_leg_xyz = env.robot.ComputeJacobianAndPosition(i, leg_q)
       # Get current Jacobian and foot position in leg frame (see ComputeJacobianAndPosition() in quadruped.py)
       # [TODO] 
-      jacobian, pos_leg = env.robot.ComputeJacobianAndPosition(env.robot.GetMotorAngles())
+      jacobian, pos_leg = env.robot.ComputeJacobianAndPosition(i, env.robot.GetMotorAngles())
 
       # Get current foot velocity in leg frame (Equation 2)
       # [TODO]
       #----Martin Start----#
-      foot_vel = jacobian @ env.robot.GetMotorVelocities()
+      foot_vel = jacobian @ env.robot.GetMotorVelocities()[3*i:3*i+3]
       #----Martin End----#
 
       # Calculate torque contribution from Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]

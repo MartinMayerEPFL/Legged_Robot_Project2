@@ -111,7 +111,8 @@ ppo_config = {  "gamma":0.99,
                 "tensorboard_log":None, 
                 "_init_setup_model":True, 
                 "policy_kwargs":policy_kwargs,
-                "device": gpu_arg}
+                "device": gpu_arg
+            }
 
 # What are these hyperparameters? Check here: https://stable-baselines3.readthedocs.io/en/master/modules/sac.html
 sac_config={"learning_rate":1e-4,

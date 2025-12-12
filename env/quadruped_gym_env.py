@@ -36,6 +36,7 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 os.sys.path.insert(0, currentdir)
 
 # misc
+import sys
 import time, datetime
 import numpy as np
 from typing import Optional

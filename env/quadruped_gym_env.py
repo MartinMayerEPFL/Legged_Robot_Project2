@@ -220,7 +220,7 @@ class QuadrupedGymEnv(gym.Env):
     if self._observation_space_mode == "DEFAULT":
       observation_high = (np.concatenate((self._robot_config.UPPER_ANGLE_JOINT,
                                          self._robot_config.VELOCITY_LIMITS,
-                                         np.array([1.0]*4))) +  OBSERVATION_EPS)
+                                         np.array([1.0]*4))) +  OBSERVATION_EPS) #Pourquoi ce tableau de 1 ? 
       observation_low = (np.concatenate((self._robot_config.LOWER_ANGLE_JOINT,
                                          -self._robot_config.VELOCITY_LIMITS,
                                          np.array([-1.0]*4))) -  OBSERVATION_EPS)
@@ -278,7 +278,7 @@ class QuadrupedGymEnv(gym.Env):
     return {'base_pos': self.robot.GetBasePosition()} 
 
   ######################################################################################
-  # Termination and reward
+  # Termination and reward                                                             #
   ######################################################################################
   def is_fallen(self,dot_prod_min=0.85):
     """Decide whether the quadruped has fallen.
@@ -437,18 +437,23 @@ class QuadrupedGymEnv(gym.Env):
     for i in range(4):
       # get Jacobian and foot position in leg frame for leg i (see ComputeJacobianAndPosition() in quadruped.py)
       # [TODO]
-      
+      [J_foot_i, foot_pos_i] = self.robot.ComputeJacobianAndPosition(i)
       # desired foot position i (from RL above)
       pd = np.zeros(3) # [TODO]
+      pd = des_foot_pos[3*i:3*i+3]
       
       # desired foot velocity i
       vd = np.zeros(3) # [TODO]
       
+      
       # foot velocity in leg frame i (Equation 2)
       # [TODO]
+      foot_vel_i = np.zeros(3)
+      foot_pos_i = J_foot_i @ vd[3*i:3*i+3]
       
       # calculate torques with Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]
       tau = np.zeros(3) # [TODO]
+      tau = J_foot_i.T @ ( kpCartesian * (pd - foot_pos_i) + kdCartesian * (vd - foot_vel_i) ) 
 
       action[3*i:3*i+3] = tau
 

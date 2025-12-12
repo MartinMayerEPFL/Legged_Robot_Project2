@@ -63,7 +63,7 @@ env = QuadrupedGymEnv(render=True,              # visualize
                     )
 
 # initialize Hopf Network, supply gait
-cpg = HopfNetwork(time_step=TIME_STEP, gait="WALK") # try TROT, WALK, BOUND, or CUSTOM
+cpg = HopfNetwork(time_step=TIME_STEP, gait="BOUND") # try TROT, WALK, BOUND, or CUSTOM
 
 TEST_STEPS = int(5 / (TIME_STEP))
 t = np.arange(TEST_STEPS)*TIME_STEP
@@ -177,7 +177,7 @@ cycles_to_plot = 3
 steps_to_plot = min(TEST_STEPS, int(np.ceil(cycles_to_plot * (2 * np.pi / avg_omega) / TIME_STEP)))
 t_plot = t[:steps_to_plot]
 
-fig, axes = plt.subplots(4, 4, figsize=(10, 8), sharex=True)
+fig, axes = plt.subplots(4, 4, figsize=(10, 10), sharex=True)
 state_titles = [r"$r$", r"$\theta$", r"$\dot{r}$", r"$\dot{\theta}$"]
 for leg_idx in range(4):
   axes[leg_idx, 0].plot(t_plot, cpg_r_hist[leg_idx, :steps_to_plot])

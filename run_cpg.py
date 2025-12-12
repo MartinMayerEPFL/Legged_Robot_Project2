@@ -63,7 +63,7 @@ env = QuadrupedGymEnv(render=True,              # visualize
                     )
 
 # initialize Hopf Network, supply gait
-cpg = HopfNetwork(time_step=TIME_STEP)
+cpg = HopfNetwork(time_step=TIME_STEP, gait="WALK") # try TROT, WALK, BOUND, or CUSTOM
 
 TEST_STEPS = int(5 / (TIME_STEP))
 t = np.arange(TEST_STEPS)*TIME_STEP
@@ -74,6 +74,10 @@ xs = np.zeros(1)
 zs = np.zeros(1)
 xs_hist = np.zeros((4, TEST_STEPS))
 zs_hist = np.zeros((4, TEST_STEPS))
+cpg_r_hist = np.zeros((4, TEST_STEPS))
+cpg_theta_hist = np.zeros((4, TEST_STEPS))
+cpg_dr_hist = np.zeros((4, TEST_STEPS))
+cpg_dtheta_hist = np.zeros((4, TEST_STEPS))
 #---MartinEnd---
 
 
@@ -97,6 +101,10 @@ for j in range(TEST_STEPS):
   xs,zs = cpg.update()
   xs_hist[:, j] = xs
   zs_hist[:, j] = zs
+  cpg_r_hist[:, j] = cpg.get_r()
+  cpg_theta_hist[:, j] = cpg.get_theta()
+  cpg_dr_hist[:, j] = cpg.get_dr()
+  cpg_dtheta_hist[:, j] = cpg.get_dtheta()
 
   # [TODO] get current motor angles and velocities for joint PD, see GetMotorAngles(), GetMotorVelocities() in quadruped.py
   #----Martin Start----#
@@ -161,10 +169,32 @@ for j in range(TEST_STEPS):
 ##################################################### 
 # PLOTS
 #####################################################
-# [TODO] Create your plots
+leg_labels = ["FR", "FL", "RR", "RL"]
+
+# Plot CPG states (r, theta, r_dot, theta_dot) for a trot gait over ~2 cycles
+avg_omega = 0.5 * (cpg._omega_swing + cpg._omega_stance)
+cycles_to_plot = 3
+steps_to_plot = min(TEST_STEPS, int(np.ceil(cycles_to_plot * (2 * np.pi / avg_omega) / TIME_STEP)))
+t_plot = t[:steps_to_plot]
+
+fig, axes = plt.subplots(4, 4, figsize=(10, 8), sharex=True)
+state_titles = [r"$r$", r"$\theta$", r"$\dot{r}$", r"$\dot{\theta}$"]
+for leg_idx in range(4):
+  axes[leg_idx, 0].plot(t_plot, cpg_r_hist[leg_idx, :steps_to_plot])
+  axes[leg_idx, 1].plot(t_plot, cpg_theta_hist[leg_idx, :steps_to_plot])
+  axes[leg_idx, 2].plot(t_plot, cpg_dr_hist[leg_idx, :steps_to_plot])
+  axes[leg_idx, 3].plot(t_plot, cpg_dtheta_hist[leg_idx, :steps_to_plot])
+  axes[leg_idx, 0].set_ylabel(leg_labels[leg_idx])
+
+for col, title in enumerate(state_titles):
+  axes[0, col].set_title(title)
+for ax in axes[-1, :]:
+  ax.set_xlabel("Time [s]")
+
+fig.suptitle("CPG states - TROT gait (~2 cycles)")
+fig.tight_layout(rect=[0, 0, 1, 0.96])
 
 plt.figure()
-leg_labels = ["FR", "FL", "RR", "RL"]
 for i in range(4):
   plt.plot(t, xs_hist[i, :], label=f"{leg_labels[i]} x")
   plt.plot(t, zs_hist[i, :], linestyle="--", label=f"{leg_labels[i]} z")

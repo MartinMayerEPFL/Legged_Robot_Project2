@@ -116,10 +116,10 @@ ppo_config = {  "gamma":0.99,
 
 # What are these hyperparameters? Check here: https://stable-baselines3.readthedocs.io/en/master/modules/sac.html
 sac_config={"learning_rate":1e-4,
-            "buffer_size":300000,
-            "batch_size":256,
+            "buffer_size":1000000,
+            "batch_size":512,
             "ent_coef":'auto', 
-            "gamma":0.99, 
+            "gamma":0.995, 
             "tau":0.005,
             "train_freq":1, 
             "gradient_steps":1,

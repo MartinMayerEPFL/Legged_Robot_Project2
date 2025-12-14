@@ -197,6 +197,10 @@ class QuadrupedGymEnv(gym.Env):
     self._MAX_EP_LEN = EPISODE_LENGTH # max sim time in seconds, arbitrary
     self._action_bound = 1.0
 
+    # add feet time when touching the ground
+    self._feet_ground_time = []
+    self._feet_ground_time_pres = []
+
     # if using CPG
     self.setupCPG()
     self.setupActionSpace()
@@ -259,7 +263,7 @@ class QuadrupedGymEnv(gym.Env):
     if self._observation_space_mode == "DEFAULT":
       self._observation = np.concatenate((self.robot.GetMotorAngles(), 
                                           self.robot.GetMotorVelocities(),
-                                          self.robot.GetBaseOrientation() ))
+                                          self.robot.GetBaseOrientation(), ))
     elif self._observation_space_mode == "LR_COURSE_OBS":
       # [TODO] Get observation from robot. What are reasonable measurements we could get on hardware?
       # if using the CPG, you can include states with self._cpg.get_r(), for example
@@ -308,29 +312,38 @@ class QuadrupedGymEnv(gym.Env):
 
   def _reward_fwd_locomotion(self, des_vel_x=None):
     """Learn forward locomotion at a desired velocity. """
-    vel_tracking_reward = 0.1 * np.clip(self.robot.GetBaseLinearVelocity()[0], 0.2, 1.0)
+    #vel_tracking_reward = 0.1 * np.clip(self.robot.GetBaseLinearVelocity()[0], 0.2, 1.0)
     # If you want to track a desired velocity 
-    # vel_tracking_reward = 0.05 * np.exp( -1/ 0.25 *  (self.robot.GetBaseLinearVelocity()[0] - des_vel_x)**2 )
+    #vel_tracking_reward = 0.5 * np.exp( -1/ 0.25 * (self.robot.GetBaseLinearVelocity()[0] - des_vel_x)**2 )
+    # Velocity reward from Bellegarda
+    vel_tracking_reward = 0.1*(1 - abs(self.robot.GetBaseLinearVelocity()[0] - des_vel_x))
+
     
     # minimize yaw (go straight)
-    yaw_reward = -0.2 * np.abs(self.robot.GetBaseOrientationRollPitchYaw()[2]) 
+    #yaw_reward = -0.2 * np.abs(self.robot.GetBaseOrientationRollPitchYaw()[2]) 
+    # Yaw reward from Bellegarda
+    yaw_reward = (-0.1)*np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1]))
     
     # don't drift laterally 
-    drift_reward = -0.01 * abs(self.robot.GetBasePosition()[1]) 
+    drift_reward = (-0.1) * abs(self.robot.GetBasePosition()[1])
+
+    # Height penalty from Bellegarda
+    height_reward = (-0.1)* abs(self.robot.GetBasePosition()[2] - 0.3) 
     
     # minimize energy 
     energy_reward = 0 
-
     for tau,vel in zip(self._dt_motor_torques,self._dt_motor_velocities):
       energy_reward += np.abs(np.dot(tau,vel)) * self._time_step
-
+    
     reward = vel_tracking_reward \
             + yaw_reward \
             + drift_reward \
-            - 0.01 * energy_reward \
-            - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1]))
+            + height_reward \
+            - 0.008 * energy_reward
+    if self.is_fallen():
+      reward = reward -10
 
-    return max(reward,0) # keep rewards positive
+    return reward # keep rewards positive
 
   def get_distance_and_angle_to_goal(self):
     """ Helper to return distance and angle to current goal location. """
@@ -404,7 +417,7 @@ class QuadrupedGymEnv(gym.Env):
   def _reward(self):
     """ Get reward depending on task"""
     if self._TASK_ENV == "FWD_LOCOMOTION":
-      return self._reward_fwd_locomotion()
+      return self._reward_fwd_locomotion(1)
     elif self._TASK_ENV == "LR_COURSE_TASK":
       return self._reward_lr_course()
     elif self._TASK_ENV == "FLAGRUN":
@@ -447,7 +460,7 @@ class QuadrupedGymEnv(gym.Env):
     
     # scale to corresponding desired foot positions (i.e. ranges in x,y,z we allow the agent to choose foot positions)
     # [TODO: edit (do you think these should these be increased? How limiting is this?)]
-    scale_array = np.array([0.1, 0.05, 0.08]*4)
+    scale_array = np.array([0.2, 0.05, 0.1]*4)
     
     # add to nominal foot position in leg frame (what are the final ranges?)
     des_foot_pos = self._robot_config.NOMINAL_FOOT_POS_LEG_FRAME + scale_array*u

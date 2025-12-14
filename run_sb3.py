@@ -98,7 +98,7 @@ n_steps = 4096
 learning_rate = lambda f: 1e-4 
 ppo_config = {  "gamma":0.99, 
                 "n_steps": int(n_steps/NUM_ENVS), 
-                "ent_coef":0.0, 
+                "ent_coef":0.0, #Peut-être augmenté vers : 0.001–0.01
                 "learning_rate":learning_rate, 
                 "vf_coef":0.5,
                 "max_grad_norm":0.5, 

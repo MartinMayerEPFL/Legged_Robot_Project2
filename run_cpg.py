@@ -51,6 +51,7 @@ ADD_CARTESIAN_PD = True
 TIME_STEP = 0.001
 foot_y = 0.0838 # this is the hip length 
 sideSign = np.array([-1, 1, -1, 1]) # get correct hip sign (body right is negative)
+TRACK_LEG = 0  # leg index to track (0: FR, 1: FL, 2: RR, 3: RL)
 
 env = QuadrupedGymEnv(render=True,              # visualize
                     on_rack=False,              # useful for debugging! 
@@ -78,6 +79,8 @@ cpg_r_hist = np.zeros((4, TEST_STEPS))
 cpg_theta_hist = np.zeros((4, TEST_STEPS))
 cpg_dr_hist = np.zeros((4, TEST_STEPS))
 cpg_dtheta_hist = np.zeros((4, TEST_STEPS))
+desired_leg_pos_hist = np.zeros((3, TEST_STEPS))
+actual_leg_pos_hist = np.zeros((3, TEST_STEPS))
 #---MartinEnd---
 
 
@@ -122,6 +125,8 @@ for j in range(TEST_STEPS):
 
     # get desired foot i pos (xi, yi, zi) in leg frame
     leg_xyz = np.array([xs[i], sideSign[i] * foot_y, zs[i]])
+    if i == TRACK_LEG:
+      desired_leg_pos_hist[:, j] = leg_xyz
 
     # call inverse kinematics to get corresponding joint angles (see ComputeInverseKinematics() in quadruped.py)
     leg_q = np.zeros(3) # [TODO]
@@ -143,6 +148,8 @@ for j in range(TEST_STEPS):
       # Get current Jacobian and foot position in leg frame (see ComputeJacobianAndPosition() in quadruped.py)
       # [TODO] 
       jacobian, pos_leg = env.robot.ComputeJacobianAndPosition(i)
+      if i == TRACK_LEG:
+        actual_leg_pos_hist[:, j] = pos_leg
 
       # Get current foot velocity in leg frame (Equation 2)
       # [TODO]
@@ -199,8 +206,26 @@ for i in range(4):
   plt.plot(t, xs_hist[i, :], label=f"{leg_labels[i]} x")
   plt.plot(t, zs_hist[i, :], linestyle="--", label=f"{leg_labels[i]} z")
 plt.xlabel("Time [s]")
-plt.ylabel("Foot position (x and z) [m]")
-plt.title("Foot trajectories vs time")
+  plt.ylabel("Foot position (x and z) [m]")
+  plt.title("Foot trajectories vs time")
+  plt.legend()
+  plt.tight_layout()
+  plt.show()
+
+# Plot desired vs actual foot position for tracked leg
+plt.figure()
+plt.subplot(2, 1, 1)
+plt.plot(t, desired_leg_pos_hist[0, :], label="desired x")
+plt.plot(t, actual_leg_pos_hist[0, :], label="actual x")
+plt.ylabel("x [m]")
 plt.legend()
-plt.tight_layout()
+plt.subplot(2, 1, 2)
+plt.plot(t, desired_leg_pos_hist[2, :], label="desired z")
+plt.plot(t, actual_leg_pos_hist[2, :], label="actual z")
+plt.xlabel("Time [s]")
+plt.ylabel("z [m]")
+plt.legend()
+pd_mode = "with Cartesian PD" if ADD_CARTESIAN_PD else "joint PD only"
+plt.suptitle(f"Leg {leg_labels[TRACK_LEG]} foot tracking ({pd_mode})\nkp_joint={kp_joint}, kd_joint={kd_joint}, kp_cart={kp_cartesian.diagonal()}, kd_cart={kd_cartesian.diagonal()}")
+plt.tight_layout(rect=[0, 0, 1, 0.92])
 plt.show()

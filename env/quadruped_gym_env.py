@@ -415,16 +415,20 @@ class QuadrupedGymEnv(gym.Env):
     # minimize energy 
     energy_reward = 0 
 
+
     for tau,vel in zip(self._dt_motor_torques,self._dt_motor_velocities):
       energy_reward += np.abs(np.dot(tau,vel)) * self._time_step
+
+    _,invalide_contact,_,_ = self.robot.GetContactInfo()
 
     reward = vel_tracking_reward \
             + yaw_reward \
             + drift_reward \
             - 0.01 * energy_reward \
+            - 0.1 * invalide_contact \
             - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1]))
 
-    return max(reward,0)
+    return max(reward,0) # keep rewards positive
 
   def _reward(self):
     """ Get reward depending on task"""

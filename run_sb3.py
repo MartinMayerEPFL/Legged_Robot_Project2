@@ -56,7 +56,7 @@ USE_GPU = True # make sure to install all necessary drivers
 
 # after implementing, you will want to test how well the agent learns with your MDP: 
 env_configs = {"motor_control_mode":"CARTESIAN_PD", # or "PD" or "CARTESIAN_PD" or "TORQUE"
-                "task_env": "FWD_LOCOMOTION", #  "LR_COURSE_TASK",
+                "task_env": "LR_COURSE_TASK", #  "LR_COURSE_TASK", FWD_LOCOMOTION
                 "observation_space_mode": "LR_COURSE_OBS"} # "LR_COURSE_OBS" or "DEFAULT" Faites par le prof
 #env_configs = {}
 

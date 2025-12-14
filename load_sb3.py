@@ -61,7 +61,10 @@ log_dir = interm_dir + '121425132221'
 
 # initialize env configs (render at test time)
 # check ideal conditions, as well as robustness to UNSEEN noise during training
-env_config = {}
+env_config = {
+    "observation_space_mode": "LR_COURSE_OBS", #DEFAULT, LR_COURSE_OBS
+    "motor_control_mode": "CARTESIAN_PD" # CARTESIAN_PD, PD
+}
 env_config['render'] = True
 env_config['record_video'] = False
 env_config['add_noise'] = False 

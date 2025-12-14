@@ -449,11 +449,14 @@ class QuadrupedGymEnv(gym.Env):
       # foot velocity in leg frame i (Equation 2)
       # [TODO]
       foot_vel_i = np.zeros(3)
-      foot_pos_i = J_foot_i @ vd[3*i:3*i+3]
+      foot_vel_i = J_foot_i @ vd[3*i:3*i+3]
       
       # calculate torques with Cartesian PD (Equation 5) [Make sure you are using matrix multiplications]
       tau = np.zeros(3) # [TODO]
-      tau = J_foot_i.T @ ( kpCartesian * (pd - foot_pos_i) + kdCartesian * (vd - foot_vel_i) ) 
+      tau = J_foot_i.T @ ( kpCartesian @ (pd - foot_pos_i) + kdCartesian @ (vd - foot_vel_i) ) 
+
+      print ("Tau shape:", tau.shape)
+      print ("Action shape:", action[3*i:3*i+3].shape)
 
       action[3*i:3*i+3] = tau
 

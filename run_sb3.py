@@ -52,10 +52,10 @@ from env.quadruped_gym_env import QuadrupedGymEnv
 LEARNING_ALG = "PPO" # "PPO" or "SAC"
 LOAD_NN = False # if you want to initialize training with a previous model 
 NUM_ENVS = 16    # how many pybullet environments to create for data collection
-USE_GPU = True # make sure to install all necessary drivers 
+USE_GPU = False # make sure to install all necessary drivers 
 
 # after implementing, you will want to test how well the agent learns with your MDP: 
-env_configs = {"motor_control_mode":"CARTESIAN_PD", # or "PD" or "CARTESIAN_PD" or "TORQUE"
+env_configs = {"motor_control_mode":"PD", # or "PD" or "CARTESIAN_PD" or "TORQUE"
                 "task_env": "FWD_LOCOMOTION", #  "LR_COURSE_TASK",
                 "observation_space_mode": "LR_COURSE_OBS"} # "LR_COURSE_OBS" or "DEFAULT" Faites par le prof
 #env_configs = {}
@@ -103,7 +103,7 @@ ppo_config = {  "gamma":0.99,
                 "vf_coef":0.5,
                 "max_grad_norm":0.5, 
                 "gae_lambda":0.95, 
-                "batch_size":128,
+                "batch_size":256,
                 "n_epochs":10, 
                 "clip_range":0.2, 
                 "clip_range_vf":1,

@@ -57,7 +57,7 @@ USE_GPU = True # make sure to install all necessary drivers
 # after implementing, you will want to test how well the agent learns with your MDP: 
 env_configs = {"motor_control_mode":"CARTESIAN_PD", # or "PD" or "CARTESIAN_PD" or "TORQUE"
                 "task_env": "FWD_LOCOMOTION", #  "LR_COURSE_TASK",
-                "observation_space_mode": "DEFAULT"} # "LR_COURSE_OBS" or "DEFAULT" Faites par le prof
+                "observation_space_mode": "LR_COURSE_OBS"} # "LR_COURSE_OBS" or "DEFAULT" Faites par le prof
 #env_configs = {}
 
 if USE_GPU and LEARNING_ALG=="SAC":
@@ -116,12 +116,12 @@ ppo_config = {  "gamma":0.99,
 
 # What are these hyperparameters? Check here: https://stable-baselines3.readthedocs.io/en/master/modules/sac.html
 sac_config={"learning_rate":1e-4,
-            "buffer_size":500000,
-            "batch_size":512,
+            "buffer_size":250000,
+            "batch_size":256,
             "ent_coef":'auto', 
             "gamma":0.99, 
             "tau":0.005,
-            "train_freq":1, 
+            "train_freq":2, 
             "gradient_steps":1,
             "learning_starts": 10000,
             "verbose":1, 

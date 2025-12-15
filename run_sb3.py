@@ -50,7 +50,7 @@ from utils.file_utils import get_latest_model
 from env.quadruped_gym_env import QuadrupedGymEnv
 
 LEARNING_ALG = "SAC" # "PPO" or "SAC"
-LOAD_NN = False # if you want to initialize training with a previous model 
+LOAD_NN = True # if you want to initialize training with a previous model 
 NUM_ENVS = 16    # how many pybullet environments to create for data collection
 USE_GPU = True # make sure to install all necessary drivers 
 
@@ -67,7 +67,7 @@ else:
 
 if LOAD_NN:
     interm_dir = "./logs/intermediate_models/"
-    log_dir = interm_dir + '' # add path
+    log_dir = interm_dir + '121425143852' # add path
     stats_path = os.path.join(log_dir, "vec_normalize.pkl")
     model_name = get_latest_model(log_dir)
 
@@ -145,7 +145,7 @@ if LOAD_NN:
     print("\nLoaded model", model_name, "\n")
 
 # Learn and save (may need to train for longer)
-model.learn(total_timesteps=1000000, log_interval=1,callback=checkpoint_callback)
+model.learn(total_timesteps=4000000, log_interval=1,callback=checkpoint_callback)
 
 # Don't forget to save the VecNormalize statistics when saving the agent
 model.save( os.path.join(SAVE_PATH, "rl_model" ) ) 

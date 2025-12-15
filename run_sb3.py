@@ -50,8 +50,8 @@ from utils.file_utils import get_latest_model
 from env.quadruped_gym_env import QuadrupedGymEnv
 
 LEARNING_ALG = "SAC" # "PPO" or "SAC"
-LOAD_NN = True # if you want to initialize training with a previous model 
-NUM_ENVS = 16    # how many pybullet environments to create for data collection
+LOAD_NN = False # if you want to initialize training with a previous model 
+NUM_ENVS = 64    # how many pybullet environments to create for data collection
 USE_GPU = True # make sure to install all necessary drivers 
 
 # after implementing, you will want to test how well the agent learns with your MDP: 
@@ -116,11 +116,11 @@ ppo_config = {  "gamma":0.99,
 
 # What are these hyperparameters? Check here: https://stable-baselines3.readthedocs.io/en/master/modules/sac.html
 sac_config={"learning_rate":1e-4,
-            "buffer_size":500000,
+            "buffer_size":1000000,
             "batch_size":512,
             "ent_coef":'auto', 
-            "gamma":0.99, 
-            "tau":0.005,
+            "gamma":0.999, 
+            "tau":0.002,
             "train_freq":1, 
             "gradient_steps":1,
             "learning_starts": 10000,

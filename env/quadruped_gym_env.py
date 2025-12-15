@@ -322,13 +322,13 @@ class QuadrupedGymEnv(gym.Env):
     # minimize yaw (go straight)
     #yaw_reward = -0.2 * np.abs(self.robot.GetBaseOrientationRollPitchYaw()[2]) 
     # Yaw reward from Bellegarda
-    yaw_reward = (-0.1)*np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1]))
+    yaw_reward = np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1]))
     
     # don't drift laterally 
-    drift_reward = (-0.1) * abs(self.robot.GetBasePosition()[1])
+    drift_reward = abs(self.robot.GetBasePosition()[1])
 
     # Height penalty from Bellegarda
-    height_reward = (-0.1)* abs(self.robot.GetBasePosition()[2] - 0.3) 
+    #height_reward = (-0.1)* abs(self.robot.GetBasePosition()[2] - 0.3) 
     
     # minimize energy 
     energy_reward = 0 
@@ -336,12 +336,9 @@ class QuadrupedGymEnv(gym.Env):
       energy_reward += np.abs(np.dot(tau,vel)) * self._time_step
     
     reward = vel_tracking_reward \
-            + yaw_reward \
-            + drift_reward \
-            + height_reward \
+            - 0.1* yaw_reward \
+            - 0.1 * drift_reward \
             - 0.008 * energy_reward
-    if self.is_fallen():
-      reward = reward -10
 
     return reward # keep rewards positive
 

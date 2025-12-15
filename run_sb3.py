@@ -95,8 +95,13 @@ policy_kwargs = dict(net_arch=[256,256]) # act_fun=tf.nn.tanh
 
 # What are these hyperparameters? Check here: https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html
 n_steps = 4096 
-learning_rate = lambda f: 1e-4 
-ppo_config = {  "gamma":0.995, 
+
+lr_start = 5e-4
+lr_end = 1e-4
+
+learning_rate = lambda f: lr_end * (lr_start / lr_end) ** f
+
+ppo_config = {  "gamma":0.99, 
                 "n_steps": int(n_steps/NUM_ENVS), 
                 "ent_coef":0.0, 
                 "learning_rate":learning_rate, 
@@ -145,7 +150,7 @@ if LOAD_NN:
     print("\nLoaded model", model_name, "\n")
 
 # Learn and save (may need to train for longer)
-model.learn(total_timesteps=1000000, log_interval=1,callback=checkpoint_callback)
+model.learn(total_timesteps=2000000, log_interval=1,callback=checkpoint_callback)
 
 # Don't forget to save the VecNormalize statistics when saving the agent
 model.save( os.path.join(SAVE_PATH, "rl_model" ) ) 

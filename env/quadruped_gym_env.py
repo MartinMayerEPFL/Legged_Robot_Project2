@@ -330,6 +330,28 @@ class QuadrupedGymEnv(gym.Env):
   def _termination(self):
     """Decide whether we should stop the episode and reset the environment. """
     return self.is_fallen() 
+  
+  ### FLO ADDED CHAT INDUCED
+  def _symmetry_penalty(self):
+    """Return a scalar penalty proportional to asymmetry between diagonal foot positions.
+    Diagonal pairs used: (0,3) and (1,2). Fallback to joint-angle difference if IK unavailable.
+    """
+    penalty = 0.0
+    try:
+      for i,j in [(0,3),(1,2)]:
+        _, pos_i = self.robot.ComputeJacobianAndPosition(i)
+        _, pos_j = self.robot.ComputeJacobianAndPosition(j)
+        penalty += np.linalg.norm(np.array(pos_i) - np.array(pos_j))
+    except Exception:
+      # fallback: compare joint angles for each diagonal pair
+      q = self.robot.GetMotorAngles()
+      for i,j in [(0,3),(1,2)]:
+        qi = np.array(q[3*i:3*i+3])
+        qj = np.array(q[3*j:3*j+3])
+        penalty += np.linalg.norm(qi - qj)
+      print ("penalty:", penalty)
+    return penalty
+  ##########################################################################################
 
   def _reward_fwd_locomotion(self, des_vel_x=None):
     """Learn forward locomotion at a desired velocity. """
@@ -349,11 +371,15 @@ class QuadrupedGymEnv(gym.Env):
     for tau,vel in zip(self._dt_motor_torques,self._dt_motor_velocities):
       energy_reward += np.abs(np.dot(tau,vel)) * self._time_step
 
+    # symmetry penalty
+    sym_pen = self._symmetry_penalty()
+
     reward = vel_tracking_reward \
             + yaw_reward \
             + drift_reward \
             - 0.01 * energy_reward \
-            - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1]))
+            - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1])) \
+            - 0.01 * sym_pen
 
     return max(reward,0) # keep rewards positive
 

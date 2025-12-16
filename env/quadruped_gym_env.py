@@ -365,7 +365,8 @@ class QuadrupedGymEnv(gym.Env):
     # don't drift laterally 
     drift_reward = -0.01 * abs(self.robot.GetBasePosition()[1])
 
-    hight_penalty = -0.1 * abs(self.robot.GetBasePosition()[2] - 0.25)
+    # hight_penalty = -0.1 * abs(self.robot.GetBasePosition()[2] - 0.25)
+    z_speed_penality = -0.5 * self.robot.GetBaseLinearVelocity()[2]**2
     
     # minimize energy 
     energy_reward = 0 
@@ -379,9 +380,9 @@ class QuadrupedGymEnv(gym.Env):
     reward = vel_tracking_reward \
             + yaw_reward \
             + drift_reward \
-            + hight_penalty \
             - 0.015 * energy_reward \
-            - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1]))
+            - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1])) \
+            + z_speed_penality
             # - 0.01 * sym_pen
 
     return max(reward,0) # keep rewards positive

@@ -97,7 +97,7 @@ policy_kwargs = dict(net_arch=[256,256]) # act_fun=tf.nn.tanh
 n_steps = 4096 
 
 lr_start = 5e-4
-lr_end = 1e-4
+lr_end = 5e-5
 
 learning_rate = lambda f: lr_end * (lr_start / lr_end) ** f
 
@@ -150,7 +150,7 @@ if LOAD_NN:
     print("\nLoaded model", model_name, "\n")
 
 # Learn and save (may need to train for longer)
-model.learn(total_timesteps=2000000, log_interval=1,callback=checkpoint_callback)
+model.learn(total_timesteps=10000000, log_interval=1,callback=checkpoint_callback)
 
 # Don't forget to save the VecNormalize statistics when saving the agent
 model.save( os.path.join(SAVE_PATH, "rl_model" ) ) 

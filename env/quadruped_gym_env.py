@@ -381,37 +381,39 @@ class QuadrupedGymEnv(gym.Env):
     penality_low_height  = - 0.8 * max(0, h_min - self.robot.GetBasePosition()[2])**2
 
     # Ecourage high swing phases and (later penalize foot dragging on the ground)
-    r_foot_swing_height = 0
-    p_foot_drag = 0
-    _, _, _, feet_contact = self.robot.GetContactInfo()
-    # p_foot_drag = 0
-    for i in range(4):
-      if feet_contact[i] == 0: # foot in swing
-        foot_pos = self.robot.ComputeJacobianAndPosition(i)[1]
-        r_foot_swing_height += 0.05 * foot_pos[2] # encourage high feet in swing
-      elif feet_contact[i] == 1: 
-        p_foot_drag -= 0.005  # no reward when foot is on ground
-    
-    ### Next idee : instead of penalizing foot contact, penalize either foot dragging, either when there is more than 2 feet on the ground and when there is less thant 2 feet 
-
     # r_foot_swing_height = 0
     # p_foot_drag = 0
     # _, _, _, feet_contact = self.robot.GetContactInfo()
-    # dq_all = self.robot.GetMotorVelocities()
-    # dragging_thershold = 0.01
+    # # p_foot_drag = 0
     # for i in range(4):
-    #   J_leg, foot_pos = self.robot.ComputeJacobianAndPosition(i)
-    #   if feet_contact[i] == 0:  # foot in swing
-    #     r_foot_swing_height += 0.05 * foot_pos[2]  # encourage high feet in swing
-    #   else:  # foot in contact/stance -> check horizontal slip/drag
-    #     # foot linear velocity in leg frame (J @ joint_vels)
-    #     dq_leg = dq_all[3*i:3*i+3]
-    #     foot_vel = J_leg @ dq_leg
-    #     horizontal_foot_speed = np.linalg.norm(foot_vel[:2])
-    #     horizontal_robot_speed = np.linalg.norm(self.robot.GetBaseLinearVelocity()[:2])
-    #     dragging_speed = horizontal_foot_speed - horizontal_robot_speed
-    #     if dragging_speed > dragging_thershold:  # foot is dragging
-    #       p_foot_drag -= 0.1 * dragging_speed
+    #   if feet_contact[i] == 0: # foot in swing
+    #     foot_pos = self.robot.ComputeJacobianAndPosition(i)[1]
+    #     r_foot_swing_height += 0.05 * foot_pos[2] # encourage high feet in swing
+    #   elif feet_contact[i] == 1: 
+    #     p_foot_drag -= 0.005  # no reward when foot is on ground
+    
+    ### Next idee : instead of penalizing foot contact, penalize either foot dragging, either when there is more than 2 feet on the ground and when there is less thant 2 feet 
+
+    r_foot_swing_height = 0
+    p_foot_drag = 0
+    _, _, _, feet_contact = self.robot.GetContactInfo()
+    dq_all = self.robot.GetMotorVelocities()
+    dragging_thershold = 0.01
+    for i in range(4):
+      J_leg, foot_pos = self.robot.ComputeJacobianAndPosition(i)
+      if feet_contact[i] == 0:  # foot in swing
+        r_foot_swing_height += 0.05 * foot_pos[2]  # encourage high feet in swing
+      else:  # foot in contact/stance -> check horizontal slip/drag
+        # foot linear velocity in leg frame (J @ joint_vels)
+        dq_leg = dq_all[3*i:3*i+3]
+        foot_vel = J_leg @ dq_leg
+        horizontal_foot_speed = np.linalg.norm(foot_vel[:2])
+        horizontal_robot_speed = np.linalg.norm(self.robot.GetBaseLinearVelocity()[:2])
+        dragging_speed = horizontal_foot_speed - horizontal_robot_speed
+        if dragging_speed > dragging_thershold:  # foot is dragging
+          p_foot_drag -= 0.1 * dragging_speed
+
+    
 
     # symmetry penalty
     #sym_pen = self._symmetry_penalty()

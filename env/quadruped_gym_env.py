@@ -316,7 +316,7 @@ class QuadrupedGymEnv(gym.Env):
     # If you want to track a desired velocity 
     #vel_tracking_reward = 0.5 * np.exp( -1/ 0.25 * (self.robot.GetBaseLinearVelocity()[0] - des_vel_x)**2 )
     # Velocity reward from Bellegarda
-    vel_tracking_reward = 0.1*(1 - abs(self.robot.GetBaseLinearVelocity()[0] - des_vel_x))
+    vel_tracking_reward = 0.3*(1 - abs(self.robot.GetBaseLinearVelocity()[0] - des_vel_x))
 
     
     # minimize yaw (go straight)
@@ -338,7 +338,7 @@ class QuadrupedGymEnv(gym.Env):
     reward = vel_tracking_reward \
             - 0.1* yaw_reward \
             - 0.1 * drift_reward \
-            - 0.008 * energy_reward
+            - 0.2 * energy_reward
 
     return reward # keep rewards positive
 

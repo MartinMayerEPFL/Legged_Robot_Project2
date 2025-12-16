@@ -355,7 +355,7 @@ class QuadrupedGymEnv(gym.Env):
 
   def _reward_fwd_locomotion(self, des_vel_x=None):
     """Learn forward locomotion at a desired velocity. """
-    vel_tracking_reward = 0.1 * np.clip(self.robot.GetBaseLinearVelocity()[0], 0.2, 1.0)
+    vel_tracking_reward = 0.08 * np.clip(self.robot.GetBaseLinearVelocity()[0], 0.2, 1.0)
     # If you want to track a desired velocity 
     # vel_tracking_reward = 0.05 * np.exp( -1/ 0.25 *  (self.robot.GetBaseLinearVelocity()[0] - des_vel_x)**2 )
     
@@ -396,7 +396,7 @@ class QuadrupedGymEnv(gym.Env):
 
     r_foot_swing_height = 0
     p_foot_drag = 0
-    _, _, _, feet_contact = self.robot.GetContactInfo()
+    nb_contact, _, _, feet_contact = self.robot.GetContactInfo()
     dq_all = self.robot.GetMotorVelocities()
     dragging_thershold = 0.01
     for i in range(4):
@@ -413,7 +413,7 @@ class QuadrupedGymEnv(gym.Env):
         if dragging_speed > dragging_thershold:  # foot is dragging
           p_foot_drag -= 0.1 * dragging_speed
 
-    
+    p_nb_contact = -0.01 * abs(nb_contact-2)
 
     # symmetry penalty
     #sym_pen = self._symmetry_penalty()

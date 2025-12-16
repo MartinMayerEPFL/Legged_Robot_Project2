@@ -374,6 +374,25 @@ class QuadrupedGymEnv(gym.Env):
     for tau,vel in zip(self._dt_motor_torques,self._dt_motor_velocities):
       energy_reward += np.abs(np.dot(tau,vel)) * self._time_step
 
+    ### OBJECTIV AVOID CRAWLING AND ENCOURAGE STABLE GAITS (POSTURE REWARDS)
+
+    # Height penality
+    h_min = 0.30
+    penality_low_height  = - 0.5 * max(0, h_min - self.robot.GetBasePosition()[2])**2
+
+    # Ecourage high swing phases and (later penalize foot dragging on the ground)
+    r_foot_swing_height = 0
+    _, _, _, feet_contact = self.robot.GetContactInfo()
+    # p_foot_drag = 0
+    for i in range(4):
+      if feet_contact[i] == 0: # foot in swing
+        foot_pos = self.robot.ComputeJacobianAndPosition(i)[1]
+        r_foot_swing_height += 0.05 * foot_pos[2] # encourage high feet in swing
+      # elif foot_contact == 1: 
+      #   if self.
+      #   p_foot_drag -= 0.05  # no reward when foot is on ground
+
+
     # symmetry penalty
     #sym_pen = self._symmetry_penalty()
 
@@ -382,7 +401,9 @@ class QuadrupedGymEnv(gym.Env):
             + drift_reward \
             - 0.015 * energy_reward \
             - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1])) \
-            + z_speed_penality
+            + z_speed_penality \
+            + penality_low_height \
+            + r_foot_swing_height
             # - 0.01 * sym_pen
 
     return max(reward,0) # keep rewards positive

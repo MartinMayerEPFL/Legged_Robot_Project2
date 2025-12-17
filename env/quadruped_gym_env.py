@@ -395,6 +395,7 @@ class QuadrupedGymEnv(gym.Env):
     ### Next idee : instead of penalizing foot contact, penalize either foot dragging, either when there is more than 2 feet on the ground and when there is less thant 2 feet 
 
     r_foot_swing_height = 0
+    # h_clearance = 0.05 # desired minimum foot clearance height
     p_foot_drag = 0
     nb_contact, _, _, feet_contact = self.robot.GetContactInfo()
     dq_all = self.robot.GetMotorVelocities()
@@ -403,17 +404,19 @@ class QuadrupedGymEnv(gym.Env):
       J_leg, foot_pos = self.robot.ComputeJacobianAndPosition(i)
       if feet_contact[i] == 0:  # foot in swing
         r_foot_swing_height += 0.05 * foot_pos[2]  # encourage high feet in swing
+        # if foot_pos[2] < h_clearance:
+        #     r_foot_swing_height -= 0.2 * (h_clearance - foot_pos[2])**2
       else:  # foot in contact/stance -> check horizontal slip/drag
         # foot linear velocity in leg frame (J @ joint_vels)
         dq_leg = dq_all[3*i:3*i+3]
         foot_vel = J_leg @ dq_leg
         horizontal_foot_speed = np.linalg.norm(foot_vel[:2])
         horizontal_robot_speed = np.linalg.norm(self.robot.GetBaseLinearVelocity()[:2])
-        dragging_speed = horizontal_foot_speed - horizontal_robot_speed
+        dragging_speed = abs(horizontal_foot_speed - horizontal_robot_speed)
         if dragging_speed > dragging_thershold:  # foot is dragging
-          p_foot_drag -= 0.1 * dragging_speed
+          p_foot_drag -= 0.2 * dragging_speed
 
-    p_nb_contact = -0.01 * abs(nb_contact-2)
+    # p_nb_contact = -0.01 * abs(nb_contact-2)
 
     # symmetry penalty
     #sym_pen = self._symmetry_penalty()

@@ -378,7 +378,7 @@ class QuadrupedGymEnv(gym.Env):
 
     # Height penality
     h_min = 0.30
-    penality_low_height  = - 0.8 * max(0, h_min - self.robot.GetBasePosition()[2])**2
+    penality_low_height  = - 0.5 * max(0, h_min - self.robot.GetBasePosition()[2])**2
 
     # Ecourage high swing phases and (later penalize foot dragging on the ground)
     # r_foot_swing_height = 0
@@ -399,11 +399,11 @@ class QuadrupedGymEnv(gym.Env):
     p_foot_drag = 0
     nb_contact, _, _, feet_contact = self.robot.GetContactInfo()
     dq_all = self.robot.GetMotorVelocities()
-    dragging_thershold = 0.01
+    dragging_thershold = 0.02
     for i in range(4):
       J_leg, foot_pos = self.robot.ComputeJacobianAndPosition(i)
       if feet_contact[i] == 0:  # foot in swing
-        r_foot_swing_height += 0.05 * foot_pos[2]  # encourage high feet in swing
+        r_foot_swing_height += 0.1 * foot_pos[2]  # encourage high feet in swing
         # if foot_pos[2] < h_clearance:
         #     r_foot_swing_height -= 0.2 * (h_clearance - foot_pos[2])**2
       else:  # foot in contact/stance -> check horizontal slip/drag
@@ -414,7 +414,7 @@ class QuadrupedGymEnv(gym.Env):
         horizontal_robot_speed = np.linalg.norm(self.robot.GetBaseLinearVelocity()[:2])
         dragging_speed = abs(horizontal_foot_speed - horizontal_robot_speed)
         if dragging_speed > dragging_thershold:  # foot is dragging
-          p_foot_drag -= 0.2 * dragging_speed
+          p_foot_drag -= 0.05 * dragging_speed
 
     # p_nb_contact = -0.01 * abs(nb_contact-2)
 
@@ -424,7 +424,7 @@ class QuadrupedGymEnv(gym.Env):
     reward = vel_tracking_reward \
             + yaw_reward \
             + drift_reward \
-            - 0.015 * energy_reward \
+            - 0.01 * energy_reward \
             - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1])) \
             + z_speed_penality \
             + penality_low_height \

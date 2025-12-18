@@ -413,20 +413,42 @@ class QuadrupedGymEnv(gym.Env):
     drift_reward = -0.01 * abs(self.robot.GetBasePosition()[1]) 
     
     # minimize energy 
-    energy_reward = 0 
+    energy_reward = 0
+    DOGO_HIGH = 0.300
 
+    # A tester plus tard : Si beaucoup d'angle et pas beaucoup de vitesse dans le joint du coude on pénalise !
+
+    base_pos = self.robot.GetBasePosition()
+    base_z = base_pos[2]
+    base_dz = self.robot.GetBaseLinearVelocity()[2]
+    high_penalty = 0.0
+    if base_z < DOGO_HIGH:
+      #Gate la pénalité avec la vitesse, on tend vers 
+      #gate = np.exp(-abs(base_dz) / 0.2)
+      high_penalty = (DOGO_HIGH - base_z) #* gate
 
     for tau,vel in zip(self._dt_motor_torques,self._dt_motor_velocities):
       energy_reward += np.abs(np.dot(tau,vel)) * self._time_step
 
-    _,invalide_contact,_,_ = self.robot.GetContactInfo()
+    _, invalide_contact, _, feet_contact = self.robot.GetContactInfo()
+
+    # Encourage swing legs to lift the foot: reward clearance when not in contact
+    swing_clearance_bonus = 0.0
+    min_swing_clearance = 0.18  # desired hip-to-foot distance in swing (m)
+    for leg_id in range(4):
+      if feet_contact[leg_id] == 0:
+        _, foot_pos_leg = self.robot.ComputeJacobianAndPosition(leg_id)
+        swing_height = -foot_pos_leg[2]  # positive distance below hip
+        swing_clearance_bonus += np.clip(min_swing_clearance - swing_height, 0.0, 0.05)
 
     reward = vel_tracking_reward \
             + yaw_reward \
             + drift_reward \
-            - 0.01 * energy_reward \
+            - 0.02 * energy_reward \
             - 0.1 * invalide_contact \
-            - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1]))
+            - 0.1 * high_penalty \
+            - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1])) \
+            + 0.07 * swing_clearance_bonus
 
     return max(reward,0) # keep rewards positive
 

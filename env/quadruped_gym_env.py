@@ -410,27 +410,27 @@ class QuadrupedGymEnv(gym.Env):
     
     # ### Next idee : instead of penalizing foot contact, penalize either foot dragging, either when there is more than 2 feet on the ground and when there is less thant 2 feet 
 
-    # r_foot_swing_height = 0
-    # h_clearance = 0.05 # desired minimum foot clearance height
-    # p_foot_drag = 0
-    # nb_contact, _, _, feet_contact = self.robot.GetContactInfo()
-    # dq_all = self.robot.GetMotorVelocities()
-    # dragging_thershold = 0.02
-    # for i in range(4):
-    #   J_leg, foot_pos = self.robot.ComputeJacobianAndPosition(i)
-    #   if feet_contact[i] == 0:  # foot in swing
-    #     r_foot_swing_height += 0.15 * foot_pos[2]  # encourage high feet in swing
-    #     if foot_pos[2] < h_clearance:
-    #         r_foot_swing_height -= 0.1 * (h_clearance - foot_pos[2])**2
-    #   else:  # foot in contact/stance -> check horizontal slip/drag
-    #     # foot linear velocity in leg frame (J @ joint_vels)
-    #     dq_leg = dq_all[3*i:3*i+3]
-    #     foot_vel = J_leg @ dq_leg
-    #     horizontal_foot_speed = np.linalg.norm(foot_vel[:2])
-    #     horizontal_robot_speed = np.linalg.norm(self.robot.GetBaseLinearVelocity()[:2])
-    #     dragging_speed = abs(horizontal_foot_speed - horizontal_robot_speed)
-    #     if dragging_speed > dragging_thershold:  # foot is dragging
-    #       p_foot_drag -= 0.05 * dragging_speed
+    r_foot_swing_height = 0
+    h_clearance = 0.05 # desired minimum foot clearance height
+    p_foot_drag = 0
+    nb_contact, _, _, feet_contact = self.robot.GetContactInfo()
+    dq_all = self.robot.GetMotorVelocities()
+    dragging_thershold = 0.02
+    for i in range(4):
+      J_leg, foot_pos = self.robot.ComputeJacobianAndPosition(i)
+      if feet_contact[i] == 0:  # foot in swing
+        r_foot_swing_height += 0.05 * foot_pos[2]  # encourage high feet in swing
+        if foot_pos[2] < h_clearance:
+            r_foot_swing_height -= 0.05 * (h_clearance - foot_pos[2])**2
+      else:  # foot in contact/stance -> check horizontal slip/drag
+        # foot linear velocity in leg frame (J @ joint_vels)
+        dq_leg = dq_all[3*i:3*i+3]
+        foot_vel = J_leg @ dq_leg
+        horizontal_foot_speed = np.linalg.norm(foot_vel[:2])
+        horizontal_robot_speed = np.linalg.norm(self.robot.GetBaseLinearVelocity()[:2])
+        dragging_speed = abs(horizontal_foot_speed - horizontal_robot_speed)
+        if dragging_speed > dragging_thershold:  # foot is dragging
+          p_foot_drag -= 0.03 * dragging_speed
 
     # p_nb_contact = -0.01 * abs(nb_contact-2)
 
@@ -443,6 +443,8 @@ class QuadrupedGymEnv(gym.Env):
             - 0.01 * energy_reward \
             - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1])) \
             + penality_low_height \
+            + r_foot_swing_height \
+            + p_foot_drag
             # - 0.01 * sym_pen
 
     return max(reward,0) # keep rewards positive

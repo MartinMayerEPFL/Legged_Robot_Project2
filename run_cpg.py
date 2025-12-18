@@ -82,6 +82,8 @@ def run_trial(*, add_cartesian_pd: bool, render: bool, seed: int, log_cpg: bool)
   q_des_hist = np.zeros((3, TEST_STEPS))
   q_act_hist = np.zeros((3, TEST_STEPS))
   base_lin_vel_hist = np.zeros((3, TEST_STEPS))
+  desired_foot_pos_hist = np.zeros((3, TEST_STEPS))
+  actual_foot_pos_hist = np.zeros((3, TEST_STEPS))
 
   xs_hist = np.zeros((4, TEST_STEPS)) if log_cpg else None
   zs_hist = np.zeros((4, TEST_STEPS)) if log_cpg else None
@@ -89,8 +91,6 @@ def run_trial(*, add_cartesian_pd: bool, render: bool, seed: int, log_cpg: bool)
   cpg_theta_hist = np.zeros((4, TEST_STEPS)) if log_cpg else None
   cpg_dr_hist = np.zeros((4, TEST_STEPS)) if log_cpg else None
   cpg_dtheta_hist = np.zeros((4, TEST_STEPS)) if log_cpg else None
-  desired_leg_pos_hist = np.zeros((3, TEST_STEPS)) if log_cpg else None
-  actual_leg_pos_hist = np.zeros((3, TEST_STEPS)) if log_cpg else None
 
   for j in range(TEST_STEPS):
     action = np.zeros(12)
@@ -108,6 +108,7 @@ def run_trial(*, add_cartesian_pd: bool, render: bool, seed: int, log_cpg: bool)
     dq = env.robot.GetMotorVelocities()
 
     tracked_leg_q_des = None
+    tracked_leg_xyz = None
     for leg_id in range(4):
       leg_xyz = np.array([xs[leg_id], sideSign[leg_id] * foot_y, zs[leg_id]])
 
@@ -127,16 +128,16 @@ def run_trial(*, add_cartesian_pd: bool, render: bool, seed: int, log_cpg: bool)
 
       if leg_id == TRACK_LEG:
         tracked_leg_q_des = leg_q_des
-        if log_cpg:
-          desired_leg_pos_hist[:, j] = leg_xyz
-          _, pos_leg = env.robot.ComputeJacobianAndPosition(leg_id)
-          actual_leg_pos_hist[:, j] = pos_leg
+        tracked_leg_xyz = leg_xyz
 
     env.step(action)
     q_after = env.robot.GetMotorAngles()
     q_des_hist[:, j] = tracked_leg_q_des
     q_act_hist[:, j] = q_after[3 * TRACK_LEG:3 * TRACK_LEG + 3]
     base_lin_vel_hist[:, j] = env.robot.GetBaseLinearVelocity()
+    desired_foot_pos_hist[:, j] = tracked_leg_xyz
+    _, foot_pos_leg = env.robot.ComputeJacobianAndPosition(TRACK_LEG)
+    actual_foot_pos_hist[:, j] = foot_pos_leg
 
   env.close()
 
@@ -146,14 +147,14 @@ def run_trial(*, add_cartesian_pd: bool, render: bool, seed: int, log_cpg: bool)
       "omega_swing": omega_swing,
       "omega_stance": omega_stance,
       "base_lin_vel": base_lin_vel_hist,
+      "desired_foot_pos": desired_foot_pos_hist,
+      "actual_foot_pos": actual_foot_pos_hist,
       "xs_hist": xs_hist,
       "zs_hist": zs_hist,
       "cpg_r_hist": cpg_r_hist,
       "cpg_theta_hist": cpg_theta_hist,
       "cpg_dr_hist": cpg_dr_hist,
       "cpg_dtheta_hist": cpg_dtheta_hist,
-      "desired_leg_pos_hist": desired_leg_pos_hist,
-      "actual_leg_pos_hist": actual_leg_pos_hist,
   }
 
 
@@ -198,34 +199,28 @@ for ax in axes[-1, :]:
 fig.suptitle(f"CPG states - {GAIT} gait (~{cycles_to_plot} cycles)")
 fig.tight_layout(rect=[0, 0, 1, 0.96])
 
-# Plot foot trajectories in leg frame (x and z)
-fig_foot_traj, ax_foot_traj = plt.subplots(1, 1, figsize=(10, 4))
-for i in range(4):
-  ax_foot_traj.plot(t, trial_cart_pd["xs_hist"][i, :], label=f"{leg_labels[i]} x")
-  ax_foot_traj.plot(t, trial_cart_pd["zs_hist"][i, :], linestyle="--", label=f"{leg_labels[i]} z")
-ax_foot_traj.set_xlabel("Time [s]")
-ax_foot_traj.set_ylabel("Foot position (x and z) [m]")
-ax_foot_traj.set_title("Foot trajectories vs time")
-ax_foot_traj.legend(loc="upper center", bbox_to_anchor=(0.5, -0.22), ncol=4, frameon=False)
-fig_foot_traj.tight_layout(rect=[0, 0.08, 1, 1])
-
-# Plot desired vs actual foot position for tracked leg (leg-frame)
+# Plot desired vs actual foot position for tracked leg, comparing joint PD vs + Cartesian PD
 fig_foot_track, axes_foot_track = plt.subplots(2, 1, figsize=(10, 5), sharex=True)
-axes_foot_track[0].plot(t, trial_cart_pd["desired_leg_pos_hist"][0, :], label="desired x")
-axes_foot_track[0].plot(t, trial_cart_pd["actual_leg_pos_hist"][0, :], label="actual x")
-axes_foot_track[0].set_ylabel("x [m]")
-axes_foot_track[0].set_title("Foot x tracking")
-axes_foot_track[0].legend()
 
-axes_foot_track[1].plot(t, trial_cart_pd["desired_leg_pos_hist"][2, :], label="desired z")
-axes_foot_track[1].plot(t, trial_cart_pd["actual_leg_pos_hist"][2, :], label="actual z")
+axes_foot_track[0].plot(t, trial_joint_pd["desired_foot_pos"][0, :], "k--", linewidth=1.5, label="desired")
+axes_foot_track[0].plot(t, trial_joint_pd["actual_foot_pos"][0, :], label="actual (joint PD)")
+axes_foot_track[0].plot(t, trial_cart_pd["actual_foot_pos"][0, :], label="actual (+ Cartesian PD)")
+axes_foot_track[0].set_ylabel("x [m]")
+axes_foot_track[0].set_title("Foot x (leg frame)")
+axes_foot_track[0].grid(True, alpha=0.3)
+
+axes_foot_track[1].plot(t, trial_joint_pd["desired_foot_pos"][2, :], "k--", linewidth=1.5, label="desired")
+axes_foot_track[1].plot(t, trial_joint_pd["actual_foot_pos"][2, :], label="actual (joint PD)")
+axes_foot_track[1].plot(t, trial_cart_pd["actual_foot_pos"][2, :], label="actual (+ Cartesian PD)")
 axes_foot_track[1].set_xlabel("Time [s]")
 axes_foot_track[1].set_ylabel("z [m]")
-axes_foot_track[1].set_title("Foot z tracking")
-axes_foot_track[1].legend()
+axes_foot_track[1].set_title("Foot z (leg frame)")
+axes_foot_track[1].grid(True, alpha=0.3)
 
-fig_foot_track.suptitle(f"Leg {leg_labels[TRACK_LEG]} foot tracking (+ Cartesian PD)")
-fig_foot_track.tight_layout(rect=[0, 0, 1, 0.92])
+fig_foot_track.suptitle(f"Leg {leg_labels[TRACK_LEG]} desired vs actual foot position")
+handles, labels = axes_foot_track[0].get_legend_handles_labels()
+fig_foot_track.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, -0.02), ncol=3, frameon=False)
+fig_foot_track.tight_layout(rect=[0, 0.05, 1, 0.92])
 
 # Plot base speed vs time (compare joint PD vs + Cartesian PD)
 fig_speed, ax_speed = plt.subplots(1, 1, figsize=(10, 4))

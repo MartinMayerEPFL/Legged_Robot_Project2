@@ -232,6 +232,8 @@ class QuadrupedGymEnv(gym.Env):
       contact_force_lim = np.array([300.0] * 4)
       contact_flag_high = np.array([1.0] * 4)
       contact_flag_low = np.array([0.0] * 4)
+      foot_pos_lim = np.array([0.4, 0.2, 0.4] * 4)   # leg-frame foot position range
+      foot_vel_lim = np.array([5.0, 5.0, 5.0] * 4)   # leg-frame foot velocity range
       self._contact_force_limit = contact_force_lim
 
       observation_high = (np.concatenate((self._robot_config.UPPER_ANGLE_JOINT,
@@ -239,6 +241,8 @@ class QuadrupedGymEnv(gym.Env):
                                          base_lin_vel_lim,
                                          base_ang_vel_lim,
                                          np.array([1.0]*4),
+                                         foot_pos_lim,
+                                         foot_vel_lim,
                                          contact_force_lim,
                                          contact_flag_high)) +  OBSERVATION_EPS)
       observation_low = (np.concatenate((self._robot_config.LOWER_ANGLE_JOINT,
@@ -246,6 +250,8 @@ class QuadrupedGymEnv(gym.Env):
                                          -base_lin_vel_lim,
                                          -base_ang_vel_lim,
                                          np.array([-1.0]*4),
+                                         -foot_pos_lim,
+                                         -foot_vel_lim,
                                          np.zeros(4),
                                          contact_flag_low)) -  OBSERVATION_EPS)
     
@@ -283,11 +289,22 @@ class QuadrupedGymEnv(gym.Env):
       feet_forces = np.clip(np.array(feet_forces), 0, self._contact_force_limit)
       feet_contact = np.array(feet_contact, dtype=np.float32)
 
+      # compute foot positions and velocities in each leg frame
+      dq = self.robot.GetMotorVelocities()
+      foot_positions = []
+      foot_velocities = []
+      for leg_id in range(4):
+        J_leg, foot_pos_leg = self.robot.ComputeJacobianAndPosition(leg_id)
+        foot_positions.append(foot_pos_leg)
+        foot_velocities.append(J_leg @ dq[3*leg_id:3*leg_id+3])
+
       self._observation = np.concatenate((self.robot.GetMotorAngles(), 
                                           self.robot.GetMotorVelocities(),
                                           self.robot.GetBaseLinearVelocity(),
                                           self.robot.GetTrueBaseRollPitchYawRate(),
                                           self.robot.GetBaseOrientation(), 
+                                          np.concatenate(foot_positions),
+                                          np.concatenate(foot_velocities),
                                           feet_forces,#Martin
                                           feet_contact))#Martin
     else:
@@ -432,23 +449,38 @@ class QuadrupedGymEnv(gym.Env):
 
     _, invalide_contact, _, feet_contact = self.robot.GetContactInfo()
 
-    # Encourage swing legs to lift the foot: reward clearance when not in contact
+    # Penalize foot slip when in contact (world-frame tangent velocity of each stance foot)
+    slip_penalty = 0.0
+    for leg_id, foot_link_id in enumerate(self.robot._foot_link_ids):
+      if feet_contact[leg_id]:
+        link_state = self.robot._pybullet_client.getLinkState(self.robot.quadruped,
+                                                              foot_link_id,
+                                                              computeLinkVelocity=1)
+        foot_vel_world = np.array(link_state[6])  # linear velocity in world frame
+        slip_penalty += np.linalg.norm(foot_vel_world[:2])  # horizontal speed in world frame
+
+    # Encourage swing legs to lift the foot with a smooth bonus around a target clearance
     swing_clearance_bonus = 0.0
-    min_swing_clearance = 0.18  # desired hip-to-foot distance in swing (m)
+    target_swing_clearance = 0.08  # desired hip-to-foot distance in swing (m)
+    sigma_clearance = 0.03        # how sharp the peak is around the target
     for leg_id in range(4):
       if feet_contact[leg_id] == 0:
         _, foot_pos_leg = self.robot.ComputeJacobianAndPosition(leg_id)
         swing_height = -foot_pos_leg[2]  # positive distance below hip
-        swing_clearance_bonus += np.clip(min_swing_clearance - swing_height, 0.0, 0.05)
+        # smooth shaping: maximize near target_swing_clearance, smaller if too low or too high
+        rel_height = np.clip(swing_height / target_swing_clearance, 0.0, 2.0)
+        clearance_shape = rel_height * np.exp(-0.5 * ((swing_height - target_swing_clearance) / sigma_clearance)**2)
+        swing_clearance_bonus += clearance_shape
 
     reward = vel_tracking_reward \
             + yaw_reward \
             + drift_reward \
-            - 0.02 * energy_reward \
+            - 0.03 * energy_reward \
             - 0.1 * invalide_contact \
-            - 0.1 * high_penalty \
+            - 0.15 * high_penalty \
             - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1])) \
-            + 0.07 * swing_clearance_bonus
+            - 0.05 * slip_penalty \
+            + 0.08 * swing_clearance_bonus
 
     return max(reward,0) # keep rewards positive
 
@@ -498,7 +530,7 @@ class QuadrupedGymEnv(gym.Env):
     
     # scale to corresponding desired foot positions (i.e. ranges in x,y,z we allow the agent to choose foot positions)
     # [TODO: edit (do you think these should these be increased? How limiting is this?)]
-    scale_array = np.array([0.20, 0.05, 0.10]*4) #MARTIN DE BASE -> (0.1, 0.05, 0.08)
+    scale_array = np.array([0.18, 0.05, 0.15]*4) #MARTIN DE BASE -> (0.1, 0.05, 0.08)
     
     # add to nominal foot position in leg frame (what are the final ranges?)
     des_foot_pos = self._robot_config.NOMINAL_FOOT_POS_LEG_FRAME + scale_array*u

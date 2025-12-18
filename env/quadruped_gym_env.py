@@ -232,6 +232,7 @@ class QuadrupedGymEnv(gym.Env):
       contact_force_lim = np.array([300.0] * 4)
       contact_flag_high = np.array([1.0] * 4)
       contact_flag_low = np.array([0.0] * 4)
+      r_feet_lim = np.array([MU_UPP] * 4)
       self._contact_force_limit = contact_force_lim
 
       observation_high = (np.concatenate((self._robot_config.UPPER_ANGLE_JOINT,
@@ -239,6 +240,7 @@ class QuadrupedGymEnv(gym.Env):
                                          base_lin_vel_lim,
                                          base_ang_vel_lim,
                                          np.array([1.0]*4),
+                                         r_feet_lim,
                                          contact_force_lim,
                                          contact_flag_high)) +  OBSERVATION_EPS)
       observation_low = (np.concatenate((self._robot_config.LOWER_ANGLE_JOINT,
@@ -246,6 +248,7 @@ class QuadrupedGymEnv(gym.Env):
                                          -base_lin_vel_lim,
                                          -base_ang_vel_lim,
                                          np.array([-1.0]*4),
+                                         np.zeros(4),
                                          np.zeros(4),
                                          contact_flag_low)) -  OBSERVATION_EPS)
     
@@ -282,14 +285,17 @@ class QuadrupedGymEnv(gym.Env):
       _, _, feet_forces, feet_contact = self.robot.GetContactInfo()
       feet_forces = np.clip(np.array(feet_forces), 0, self._contact_force_limit)
       feet_contact = np.array(feet_contact, dtype=np.float32)
+      r_feet = self._cpg.get_r()
 
       self._observation = np.concatenate((self.robot.GetMotorAngles(), 
                                           self.robot.GetMotorVelocities(),
                                           self.robot.GetBaseLinearVelocity(),
                                           self.robot.GetTrueBaseRollPitchYawRate(),
                                           self.robot.GetBaseOrientation(), 
+                                          r_feet,
                                           feet_forces,#Martin
                                           feet_contact))#Martin
+                                        
     else:
       raise ValueError("observation space not defined or not intended")
 

@@ -261,16 +261,23 @@ class HopfNetwork():
     X = self.X.copy()
     X_dot_prev = self.X_dot.copy() 
     X_dot = np.zeros((2,4))
+    r_all = X[0, :]
+    theta_all = X[1, :]
 
     # loop through each leg's oscillator, find current velocities
     for i in range(4):
       # get r_i, theta_i from X
+    
       r, theta = X[:,i]
       # amplitude (use mu from RL, i.e. self._mu_rl[i])
-      r_dot = 0  # [TODO]
+      # ---- Alex begin
+      r_dot = self._alpha*(self._mu_rl[i]-(r**2))*r # [TODO]
       # phase (use omega from RL, i.e. self._omega_rl[i])
-      theta_dot = 0 # [TODO]
-
+      theta_dot = self._omega_rl[i]
+      for j in range (4):
+        theta_dot += r_all[j] * self._coupling_strength * np.sin(theta_all[j] - theta - self.PHI[i,j])# [TODO]
+      
+      # ---- Alex end
       X_dot[:,i] = [r_dot, theta_dot]
 
     # integrate 

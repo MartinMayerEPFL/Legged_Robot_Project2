@@ -440,8 +440,6 @@ class QuadrupedGymEnv(gym.Env):
     base_dz = self.robot.GetBaseLinearVelocity()[2]
     high_penalty = 0.0
     if base_z < DOGO_HIGH:
-      #Gate la pénalité avec la vitesse, on tend vers 
-      #gate = np.exp(-abs(base_dz) / 0.2)
       high_penalty = (DOGO_HIGH - base_z) #* gate
 
     for tau,vel in zip(self._dt_motor_torques,self._dt_motor_velocities):
@@ -479,8 +477,8 @@ class QuadrupedGymEnv(gym.Env):
             - 0.1 * invalide_contact \
             - 0.15 * high_penalty \
             - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1])) \
-            - 0.05 * slip_penalty \
             + 0.03 * swing_clearance_bonus
+            #- 0.05 * slip_penalty \
 
     return max(reward,0) # keep rewards positive
 

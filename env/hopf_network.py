@@ -58,7 +58,7 @@ class HopfNetwork():
                 ground_clearance=0.07,   # foot swing height 
                 ground_penetration=0.01, # foot stance penetration into ground 
                 robot_height=0.3,        # in nominal case (standing) 
-                des_step_len=0.1,       # desired step length 
+                des_step_len=0.05,       # desired step length 
                 max_step_len_rl=0.1,     # max step length, for RL scaling 
                 use_RL=False             # whether to learn parameters with RL 
                 ):

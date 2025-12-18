@@ -85,6 +85,22 @@ def run_trial(*, add_cartesian_pd: bool, render: bool, seed: int, log_cpg: bool)
   desired_foot_pos_hist = np.zeros((3, TEST_STEPS))
   actual_foot_pos_hist = np.zeros((3, TEST_STEPS))
 
+  # Metrics for stance/swing and CoT (accumulated until the robot falls)
+  dt = TIME_STEP
+  base_pos_start = np.array(env.robot.GetBasePosition(), dtype=np.float64)
+  last_valid_base_pos = base_pos_start.copy()
+  total_mass = float(np.sum(env.robot.GetTotalMassFromURDF()))
+  g = 9.81
+  energy_joules = 0.0
+  stance_time = np.zeros(4, dtype=np.float64)
+  swing_time = np.zeros(4, dtype=np.float64)
+  stance_bouts_s = []
+  swing_bouts_s = []
+  contact_prev = None
+  phase_start_s = np.zeros(4, dtype=np.float64)
+  valid_steps = 0
+  fell_at_s = None
+
   xs_hist = np.zeros((4, TEST_STEPS)) if log_cpg else None
   zs_hist = np.zeros((4, TEST_STEPS)) if log_cpg else None
   cpg_r_hist = np.zeros((4, TEST_STEPS)) if log_cpg else None
@@ -139,7 +155,59 @@ def run_trial(*, add_cartesian_pd: bool, render: bool, seed: int, log_cpg: bool)
     _, foot_pos_leg = env.robot.ComputeJacobianAndPosition(TRACK_LEG)
     actual_foot_pos_hist[:, j] = foot_pos_leg
 
+    if fell_at_s is None and env.is_fallen():
+      fell_at_s = (j + 1) * dt
+
+    if fell_at_s is None:
+      valid_steps += 1
+      t_s = valid_steps * dt
+
+      # stance/swing using actual contacts
+      feet_contact = np.array(env.robot.GetContactInfo()[3], dtype=np.int32)
+      stance_time += feet_contact * dt
+      swing_time += (1 - feet_contact) * dt
+
+      if contact_prev is None:
+        contact_prev = feet_contact.copy()
+        phase_start_s[:] = 0.0
+      else:
+        for leg_id in range(4):
+          if feet_contact[leg_id] != contact_prev[leg_id]:
+            dur = t_s - phase_start_s[leg_id]
+            if contact_prev[leg_id] == 1:
+              stance_bouts_s.append(dur)
+            else:
+              swing_bouts_s.append(dur)
+            phase_start_s[leg_id] = t_s
+            contact_prev[leg_id] = feet_contact[leg_id]
+
+      # energy for CoT: integral |tau * qdot| dt
+      motor_torques = np.array(env.robot.GetMotorTorques(), dtype=np.float64)
+      motor_velocities = np.array(env.robot.GetMotorVelocities(), dtype=np.float64)
+      energy_joules += float(np.sum(np.abs(motor_torques * motor_velocities))) * dt
+
+      last_valid_base_pos = np.array(env.robot.GetBasePosition(), dtype=np.float64)
+
   env.close()
+
+  # Close current stance/swing bouts (until fall or end)
+  valid_time_s = valid_steps * dt
+  if contact_prev is not None and valid_time_s > 0:
+    for leg_id in range(4):
+      dur = valid_time_s - phase_start_s[leg_id]
+      if contact_prev[leg_id] == 1:
+        stance_bouts_s.append(dur)
+      else:
+        swing_bouts_s.append(dur)
+
+  distance_m = float(np.linalg.norm((last_valid_base_pos - base_pos_start)[:2]))
+  denom = total_mass * g * max(distance_m, 1e-6)
+  cot = float(energy_joules / denom)
+
+  mean_stance_bout_s = float(np.mean(stance_bouts_s)) if stance_bouts_s else 0.0
+  mean_swing_bout_s = float(np.mean(swing_bouts_s)) if swing_bouts_s else 0.0
+  duty_factor_per_leg = stance_time / np.maximum(stance_time + swing_time, 1e-9)
+  mean_duty_factor = float(np.mean(duty_factor_per_leg)) if valid_time_s > 0 else 0.0
 
   return {
       "q_des": q_des_hist,
@@ -149,6 +217,17 @@ def run_trial(*, add_cartesian_pd: bool, render: bool, seed: int, log_cpg: bool)
       "base_lin_vel": base_lin_vel_hist,
       "desired_foot_pos": desired_foot_pos_hist,
       "actual_foot_pos": actual_foot_pos_hist,
+      "metrics": {
+          "valid_time_s": valid_time_s,
+          "mean_stance_bout_s": mean_stance_bout_s,
+          "mean_swing_bout_s": mean_swing_bout_s,
+          "mean_duty_factor": mean_duty_factor,
+          "energy_j": energy_joules,
+          "distance_m": distance_m,
+          "mass_kg": total_mass,
+          "cot": cot,
+          "fell_at_s": fell_at_s,
+      },
       "xs_hist": xs_hist,
       "zs_hist": zs_hist,
       "cpg_r_hist": cpg_r_hist,
@@ -168,6 +247,23 @@ trial_cart_pd = run_trial(add_cartesian_pd=True, render=RENDER, seed=seed, log_c
 
 rmse_joint_pd = rmse(trial_joint_pd["q_des"], trial_joint_pd["q_act"])
 rmse_cart_pd = rmse(trial_cart_pd["q_des"], trial_cart_pd["q_act"])
+
+print("\n==== Mean stance/swing + CoT (until fall) ====")
+for name, trial in [("joint PD only", trial_joint_pd), ("+ Cartesian PD", trial_cart_pd)]:
+  m = trial["metrics"]
+  print(f"[{name}]")
+  print(
+      f"  mean stance bout: {m['mean_stance_bout_s']:.3f} s | "
+      f"mean swing bout: {m['mean_swing_bout_s']:.3f} s | "
+      f"mean duty factor: {m['mean_duty_factor']:.3f}"
+  )
+  print(
+      f"  energy: {m['energy_j']:.2f} J | distance: {m['distance_m']:.3f} m | "
+      f"mass: {m['mass_kg']:.2f} kg | CoT: {m['cot']:.3f}"
+  )
+  if m["fell_at_s"] is not None:
+    print(f"  fell at t = {m['fell_at_s']:.3f} s (metrics computed up to fall)")
+
 print("==== Gains used ====")
 print("kp_joint =", kp_joint, "kd_joint =", kd_joint)
 print("kp_cartesian diag =", kp_cartesian.diagonal(), "kd_cartesian diag =", kd_cartesian.diagonal())

@@ -50,15 +50,15 @@ class HopfNetwork():
                 mu=1**2,                 # intrinsic amplitude, converges to sqrt(mu)
                 omega_swing=5*2*np.pi,   # frequency in swing phase (can edit)
                 omega_stance=2*2*np.pi,  # frequency in stance phase (can edit)        ### 2.5 for bound and 2 for other modes
-                gait="WALK",            # Gait, can be TROT, WALK, PACE, BOUND, etc.
-                alpha=30,                 # amplitude convergence factor                ### 5 or lower for bound and 5 or higher for other modes
+                gait="TROT",            # Gait, can be TROT, WALK, PACE, BOUND, etc.
+                alpha=5,                 # amplitude convergence factor                ### 5 or lower for bound and 5 or higher for other modes
                 coupling_strength=1,     # coefficient to multiply coupling matrix
                 couple=True,             # whether oscillators should be coupled
                 time_step=0.001,         # time step 
                 ground_clearance=0.07,   # foot swing height 
                 ground_penetration=0.01, # foot stance penetration into ground 
                 robot_height=0.3,        # in nominal case (standing) 
-                des_step_len=0.05,       # desired step length 
+                des_step_len=0.1,       # desired step length 
                 max_step_len_rl=0.1,     # max step length, for RL scaling 
                 use_RL=False             # whether to learn parameters with RL 
                 ):

@@ -40,11 +40,11 @@ from env.quadruped_gym_env import QuadrupedGymEnv
 
 RENDER = True
 TIME_STEP = 0.001
-TEST_DURATION = 5.0
+TEST_DURATION = 8.0
 foot_y = 0.0838 # this is the hip length 
 sideSign = np.array([-1, 1, -1, 1]) # get correct hip sign (body right is negative)
 TRACK_LEG = 0  # leg index to track (0: FR, 1: FL, 2: RR, 3: RL)
-GAIT = "BOUND"  # try TROT, WALK, BOUND, or CUSTOM
+GAIT = "TROT"  # try TROT, WALK, BOUND, or CUSTOM
 TEST_STEPS = int(TEST_DURATION / TIME_STEP)
 t = np.arange(TEST_STEPS) * TIME_STEP
 
@@ -81,6 +81,7 @@ def run_trial(*, add_cartesian_pd: bool, render: bool, seed: int, log_cpg: bool)
 
   q_des_hist = np.zeros((3, TEST_STEPS))
   q_act_hist = np.zeros((3, TEST_STEPS))
+  base_lin_vel_hist = np.zeros((3, TEST_STEPS))
 
   xs_hist = np.zeros((4, TEST_STEPS)) if log_cpg else None
   zs_hist = np.zeros((4, TEST_STEPS)) if log_cpg else None
@@ -135,6 +136,7 @@ def run_trial(*, add_cartesian_pd: bool, render: bool, seed: int, log_cpg: bool)
     q_after = env.robot.GetMotorAngles()
     q_des_hist[:, j] = tracked_leg_q_des
     q_act_hist[:, j] = q_after[3 * TRACK_LEG:3 * TRACK_LEG + 3]
+    base_lin_vel_hist[:, j] = env.robot.GetBaseLinearVelocity()
 
   env.close()
 
@@ -143,6 +145,7 @@ def run_trial(*, add_cartesian_pd: bool, render: bool, seed: int, log_cpg: bool)
       "q_act": q_act_hist,
       "omega_swing": omega_swing,
       "omega_stance": omega_stance,
+      "base_lin_vel": base_lin_vel_hist,
       "xs_hist": xs_hist,
       "zs_hist": zs_hist,
       "cpg_r_hist": cpg_r_hist,
@@ -196,34 +199,48 @@ fig.suptitle(f"CPG states - {GAIT} gait (~{cycles_to_plot} cycles)")
 fig.tight_layout(rect=[0, 0, 1, 0.96])
 
 # Plot foot trajectories in leg frame (x and z)
-plt.figure()
+fig_foot_traj, ax_foot_traj = plt.subplots(1, 1, figsize=(10, 4))
 for i in range(4):
-  plt.plot(t, trial_cart_pd["xs_hist"][i, :], label=f"{leg_labels[i]} x")
-  plt.plot(t, trial_cart_pd["zs_hist"][i, :], linestyle="--", label=f"{leg_labels[i]} z")
-plt.xlabel("Time [s]")
-plt.ylabel("Foot position (x and z) [m]")
-plt.title("Foot trajectories vs time")
-plt.legend()
-plt.tight_layout()
+  ax_foot_traj.plot(t, trial_cart_pd["xs_hist"][i, :], label=f"{leg_labels[i]} x")
+  ax_foot_traj.plot(t, trial_cart_pd["zs_hist"][i, :], linestyle="--", label=f"{leg_labels[i]} z")
+ax_foot_traj.set_xlabel("Time [s]")
+ax_foot_traj.set_ylabel("Foot position (x and z) [m]")
+ax_foot_traj.set_title("Foot trajectories vs time")
+ax_foot_traj.legend(loc="upper center", bbox_to_anchor=(0.5, -0.22), ncol=4, frameon=False)
+fig_foot_traj.tight_layout(rect=[0, 0.08, 1, 1])
 
 # Plot desired vs actual foot position for tracked leg (leg-frame)
-plt.figure()
-plt.subplot(2, 1, 1)
-plt.plot(t, trial_cart_pd["desired_leg_pos_hist"][0, :], label="desired x")
-plt.plot(t, trial_cart_pd["actual_leg_pos_hist"][0, :], label="actual x")
-plt.ylabel("x [m]")
-plt.legend()
-plt.subplot(2, 1, 2)
-plt.plot(t, trial_cart_pd["desired_leg_pos_hist"][2, :], label="desired z")
-plt.plot(t, trial_cart_pd["actual_leg_pos_hist"][2, :], label="actual z")
-plt.xlabel("Time [s]")
-plt.ylabel("z [m]")
-plt.legend()
-plt.suptitle(
-    f"Leg {leg_labels[TRACK_LEG]} foot tracking (+ Cartesian PD)\n"
-    f"kp_joint={kp_joint}, kd_joint={kd_joint}, kp_cart={kp_cartesian.diagonal()}, kd_cart={kd_cartesian.diagonal()}"
-)
-plt.tight_layout(rect=[0, 0, 1, 0.92])
+fig_foot_track, axes_foot_track = plt.subplots(2, 1, figsize=(10, 5), sharex=True)
+axes_foot_track[0].plot(t, trial_cart_pd["desired_leg_pos_hist"][0, :], label="desired x")
+axes_foot_track[0].plot(t, trial_cart_pd["actual_leg_pos_hist"][0, :], label="actual x")
+axes_foot_track[0].set_ylabel("x [m]")
+axes_foot_track[0].set_title("Foot x tracking")
+axes_foot_track[0].legend()
+
+axes_foot_track[1].plot(t, trial_cart_pd["desired_leg_pos_hist"][2, :], label="desired z")
+axes_foot_track[1].plot(t, trial_cart_pd["actual_leg_pos_hist"][2, :], label="actual z")
+axes_foot_track[1].set_xlabel("Time [s]")
+axes_foot_track[1].set_ylabel("z [m]")
+axes_foot_track[1].set_title("Foot z tracking")
+axes_foot_track[1].legend()
+
+fig_foot_track.suptitle(f"Leg {leg_labels[TRACK_LEG]} foot tracking (+ Cartesian PD)")
+fig_foot_track.tight_layout(rect=[0, 0, 1, 0.92])
+
+# Plot base speed vs time (compare joint PD vs + Cartesian PD)
+fig_speed, ax_speed = plt.subplots(1, 1, figsize=(10, 4))
+speed_joint_pd = np.linalg.norm(trial_joint_pd["base_lin_vel"][:2, :], axis=0)
+speed_cart_pd = np.linalg.norm(trial_cart_pd["base_lin_vel"][:2, :], axis=0)
+ax_speed.plot(t, trial_joint_pd["base_lin_vel"][0, :], label="vx (joint PD)")
+ax_speed.plot(t, trial_cart_pd["base_lin_vel"][0, :], label="vx (+ Cartesian PD)")
+ax_speed.plot(t, speed_joint_pd, linestyle="--", label="|v_xy| (joint PD)")
+ax_speed.plot(t, speed_cart_pd, linestyle="--", label="|v_xy| (+ Cartesian PD)")
+ax_speed.set_xlabel("Time [s]")
+ax_speed.set_ylabel("Speed [m/s]")
+ax_speed.set_title("Base speed vs time")
+ax_speed.grid(True, alpha=0.3)
+ax_speed.legend(loc="upper center", bbox_to_anchor=(0.5, -0.22), ncol=2, frameon=False)
+fig_speed.tight_layout(rect=[0, 0.08, 1, 1])
 
 # Plot desired vs actual joint angles, comparing joint PD vs joint+Cartesian PD
 fig, axes = plt.subplots(3, 1, figsize=(10, 7), sharex=True)
@@ -232,14 +249,11 @@ for j_idx in range(3):
   axes[j_idx].plot(t, trial_joint_pd["q_act"][j_idx, :], label="actual (joint PD)")
   axes[j_idx].plot(t, trial_cart_pd["q_act"][j_idx, :], label="actual (+ Cartesian PD)")
   axes[j_idx].set_ylabel(f"{joint_labels[j_idx]} [rad]")
+  axes[j_idx].set_title(f"{joint_labels[j_idx]} joint")
   axes[j_idx].grid(True, alpha=0.3)
 axes[-1].set_xlabel("Time [s]")
 axes[0].legend(ncol=3, fontsize=9)
-fig.suptitle(
-    f"Leg {leg_labels[TRACK_LEG]} joint tracking\n"
-    f"kp_joint={kp_joint}, kd_joint={kd_joint}; kp_cart diag={kp_cartesian.diagonal()}, kd_cart diag={kd_cartesian.diagonal()}\n"
-    f"RMSE joint PD={rmse_joint_pd.round(3)} rad, +Cart PD={rmse_cart_pd.round(3)} rad"
-)
+fig.suptitle(f"Leg {leg_labels[TRACK_LEG]} joint tracking (desired vs actual)")
 fig.tight_layout(rect=[0, 0, 1, 0.92])
 
 plt.show()

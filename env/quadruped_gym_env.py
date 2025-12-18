@@ -480,7 +480,7 @@ class QuadrupedGymEnv(gym.Env):
             - 0.15 * high_penalty \
             - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1])) \
             - 0.05 * slip_penalty \
-            + 0.08 * swing_clearance_bonus
+            + 0.03 * swing_clearance_bonus
 
     return max(reward,0) # keep rewards positive
 

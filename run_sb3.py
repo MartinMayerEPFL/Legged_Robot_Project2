@@ -96,8 +96,8 @@ policy_kwargs = dict(net_arch=[256,256]) # act_fun=tf.nn.tanh
 # What are these hyperparameters? Check here: https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html
 n_steps = 4096 
 
-lr_start = 1e-4
-lr_end = 1e-4
+lr_start = 10e-5
+lr_end = 8e-5
 
 learning_rate = lambda f: lr_start + f * (lr_end - lr_start)
 

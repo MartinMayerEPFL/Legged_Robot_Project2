@@ -353,25 +353,18 @@ class QuadrupedGymEnv(gym.Env):
     Diagonal pairs used: (0,3) and (1,2). Fallback to joint-angle difference if IK unavailable.
     """
     penalty = 0.0
-    try:
-      for i,j in [(0,3),(1,2)]:
-        _, pos_i = self.robot.ComputeJacobianAndPosition(i)
-        _, pos_j = self.robot.ComputeJacobianAndPosition(j)
-        penalty += np.linalg.norm(np.array(pos_i) - np.array(pos_j))
-    except Exception:
-      # fallback: compare joint angles for each diagonal pair
-      q = self.robot.GetMotorAngles()
-      for i,j in [(0,3),(1,2)]:
-        qi = np.array(q[3*i:3*i+3])
-        qj = np.array(q[3*j:3*j+3])
-        penalty += np.linalg.norm(qi - qj)
-      print ("penalty:", penalty)
+    # Compare joint angles for each diagonal pair
+    q = self.robot.GetMotorAngles()
+    for i,j in [(0,3),(1,2)]:
+      qi = np.array(q[3*i:3*i+3])
+      qj = np.array(q[3*j:3*j+3])
+      penalty -= np.linalg.norm(qi - qj)
     return penalty
   ##########################################################################################
 
   def _reward_fwd_locomotion(self, des_vel_x=None):
     """Learn forward locomotion at a desired velocity. """
-    vel_tracking_reward = 0.1 * np.clip(self.robot.GetBaseLinearVelocity()[0], 0.2, 1.0)
+    vel_tracking_reward = 0.15 * np.clip(self.robot.GetBaseLinearVelocity()[0], 0.2, 1.0)
     # If you want to track a desired velocity 
     # vel_tracking_reward = 0.05 * np.exp( -1/ 0.25 *  (self.robot.GetBaseLinearVelocity()[0] - des_vel_x)**2 )
     
@@ -410,32 +403,32 @@ class QuadrupedGymEnv(gym.Env):
     
     # ### Next idee : instead of penalizing foot contact, penalize either foot dragging, either when there is more than 2 feet on the ground and when there is less thant 2 feet 
 
-    r_foot_swing_height = 0
-    h_clearance = 0.05 # desired minimum foot clearance height
-    p_foot_drag = 0
-    nb_contact, _, _, feet_contact = self.robot.GetContactInfo()
-    dq_all = self.robot.GetMotorVelocities()
-    dragging_thershold = 0.02
-    for i in range(4):
-      J_leg, foot_pos = self.robot.ComputeJacobianAndPosition(i)
-      if feet_contact[i] == 0:  # foot in swing
-        r_foot_swing_height += 0.05 * foot_pos[2]  # encourage high feet in swing
-        if foot_pos[2] < h_clearance:
-            r_foot_swing_height -= 0.05 * (h_clearance - foot_pos[2])**2
-      else:  # foot in contact/stance -> check horizontal slip/drag
-        # foot linear velocity in leg frame (J @ joint_vels)
-        dq_leg = dq_all[3*i:3*i+3]
-        foot_vel = J_leg @ dq_leg
-        horizontal_foot_speed = np.linalg.norm(foot_vel[:2])
-        horizontal_robot_speed = np.linalg.norm(self.robot.GetBaseLinearVelocity()[:2])
-        dragging_speed = abs(horizontal_foot_speed - horizontal_robot_speed)
-        if dragging_speed > dragging_thershold:  # foot is dragging
-          p_foot_drag -= 0.03 * dragging_speed
+    # r_foot_swing_height = 0
+    # h_clearance = 0.05 # desired minimum foot clearance height
+    # p_foot_drag = 0
+    # nb_contact, _, _, feet_contact = self.robot.GetContactInfo()
+    # dq_all = self.robot.GetMotorVelocities()
+    # dragging_thershold = 0.02
+    # for i in range(4):
+    #   J_leg, foot_pos = self.robot.ComputeJacobianAndPosition(i)
+    #   if feet_contact[i] == 0:  # foot in swing
+    #     r_foot_swing_height += 0.1 * foot_pos[2]  # encourage high feet in swing
+    #     # if foot_pos[2] < h_clearance:
+    #     #     r_foot_swing_height -= 0.01 * (h_clearance - foot_pos[2])**2
+    #   else:  # foot in contact/stance -> check horizontal slip/drag
+    #     # foot linear velocity in leg frame (J @ joint_vels)
+    #     dq_leg = dq_all[3*i:3*i+3]
+    #     foot_vel = J_leg @ dq_leg
+    #     horizontal_foot_speed = np.linalg.norm(foot_vel[:2])
+    #     horizontal_robot_speed = np.linalg.norm(self.robot.GetBaseLinearVelocity()[:2])
+    #     dragging_speed = abs(horizontal_foot_speed - horizontal_robot_speed)
+    #     if dragging_speed > dragging_thershold:  # foot is dragging
+    #       p_foot_drag -= 0.01 * dragging_speed
 
     # p_nb_contact = -0.01 * abs(nb_contact-2)
 
     # symmetry penalty
-    #sym_pen = self._symmetry_penalty()
+    sym_pen = self._symmetry_penalty()
   
     reward = vel_tracking_reward \
             + yaw_reward \
@@ -443,11 +436,9 @@ class QuadrupedGymEnv(gym.Env):
             - 0.01 * energy_reward \
             - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1])) \
             + penality_low_height \
-            + r_foot_swing_height \
-            + p_foot_drag
-            # - 0.01 * sym_pen
+            + 0.05 * sym_pen
 
-    return max(reward,0) # keep rewards positive
+    return reward # keep rewards positive
 
   def get_distance_and_angle_to_goal(self):
     """ Helper to return distance and angle to current goal location. """

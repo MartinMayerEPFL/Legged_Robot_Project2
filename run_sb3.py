@@ -50,7 +50,7 @@ from utils.file_utils import get_latest_model
 from env.quadruped_gym_env import QuadrupedGymEnv
 
 LEARNING_ALG = "PPO" # "PPO" or "SAC"
-LOAD_NN = True # if you want to initialize training with a previous model 
+LOAD_NN = False # if you want to initialize training with a previous model 
 NUM_ENVS = 16    # how many pybullet environments to create for data collection
 USE_GPU = False # make sure to install all necessary drivers 
 
@@ -96,10 +96,10 @@ policy_kwargs = dict(net_arch=[256,256]) # act_fun=tf.nn.tanh
 # What are these hyperparameters? Check here: https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html
 n_steps = 4096 
 
-lr_start = 1e-3
+lr_start = 5e-4
 lr_end = 1e-4
 
-learning_rate = lambda f: lr_end * (lr_start / lr_end) ** f
+learning_rate = lambda f: lr_start + f * (lr_end - lr_start)
 
 ppo_config = {  "gamma":0.95, 
                 "n_steps": int(n_steps/NUM_ENVS), 
@@ -150,7 +150,7 @@ if LOAD_NN:
     print("\nLoaded model", model_name, "\n")
 
 # Learn and save (may need to train for longer)
-model.learn(total_timesteps=2000000, log_interval=1,callback=checkpoint_callback)
+model.learn(total_timesteps=1000000, log_interval=1,callback=checkpoint_callback)
 
 # Don't forget to save the VecNormalize statistics when saving the agent
 model.save( os.path.join(SAVE_PATH, "rl_model" ) ) 

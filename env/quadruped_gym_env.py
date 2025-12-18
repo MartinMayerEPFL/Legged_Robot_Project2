@@ -229,6 +229,8 @@ class QuadrupedGymEnv(gym.Env):
     elif self._observation_space_mode == "LR_COURSE_OBS":
       base_lin_vel_lim = np.array([5.0, 5.0, 5.0])
       base_ang_vel_lim = np.array([20.0, 20.0, 20.0])
+      foot_position_lim = np.array([0.5,0.2,0.5]*4)
+      foot_velocity_lim = np.array([10.0,10.0,10.0]*4)
       contact_force_lim = np.array([300.0] * 4)
       contact_flag_high = np.array([1.0] * 4)
       contact_flag_low = np.array([0.0] * 4)
@@ -239,6 +241,8 @@ class QuadrupedGymEnv(gym.Env):
                                          base_lin_vel_lim,
                                          base_ang_vel_lim,
                                          np.array([1.0]*4),
+                                         foot_position_lim,
+                                         foot_velocity_lim,
                                          contact_force_lim,
                                          contact_flag_high)) +  OBSERVATION_EPS)
       observation_low = (np.concatenate((self._robot_config.LOWER_ANGLE_JOINT,
@@ -246,6 +250,8 @@ class QuadrupedGymEnv(gym.Env):
                                          -base_lin_vel_lim,
                                          -base_ang_vel_lim,
                                          np.array([-1.0]*4),
+                                         -foot_position_lim,
+                                         -foot_velocity_lim,
                                          np.zeros(4),
                                          contact_flag_low)) -  OBSERVATION_EPS)
     
@@ -283,11 +289,21 @@ class QuadrupedGymEnv(gym.Env):
       feet_forces = np.clip(np.array(feet_forces), 0, self._contact_force_limit)
       feet_contact = np.array(feet_contact, dtype=np.float32)
 
+      dq = self.robot.GetMotorVelocities()
+      foot_positions = []
+      foot_velocities = []
+      for leg_id in range(4):
+        J_leg, foot_pos_leg = self.robot.ComputeJacobianAndPosition(leg_id)
+        foot_positions.append(foot_pos_leg)
+        foot_velocities.append(J_leg @ dq[3*leg_id:3*leg_id+3])
+
       self._observation = np.concatenate((self.robot.GetMotorAngles(), 
                                           self.robot.GetMotorVelocities(),
                                           self.robot.GetBaseLinearVelocity(),
                                           self.robot.GetTrueBaseRollPitchYawRate(),
                                           self.robot.GetBaseOrientation(), 
+                                          np.concatenate(foot_positions),
+                                          np.concatenate(foot_velocities),
                                           feet_forces,#Martin
                                           feet_contact))#Martin
     else:
@@ -355,7 +371,7 @@ class QuadrupedGymEnv(gym.Env):
 
   def _reward_fwd_locomotion(self, des_vel_x=None):
     """Learn forward locomotion at a desired velocity. """
-    vel_tracking_reward = 0.08 * np.clip(self.robot.GetBaseLinearVelocity()[0], 0.2, 1.0)
+    vel_tracking_reward = 0.1 * np.clip(self.robot.GetBaseLinearVelocity()[0], 0.2, 1.0)
     # If you want to track a desired velocity 
     # vel_tracking_reward = 0.05 * np.exp( -1/ 0.25 *  (self.robot.GetBaseLinearVelocity()[0] - des_vel_x)**2 )
     
@@ -365,8 +381,8 @@ class QuadrupedGymEnv(gym.Env):
     # don't drift laterally 
     drift_reward = -0.01 * abs(self.robot.GetBasePosition()[1])
 
-    # hight_penalty = -0.1 * abs(self.robot.GetBasePosition()[2] - 0.25)
-    z_speed_penality = -0.5 * self.robot.GetBaseLinearVelocity()[2]**2
+    # # hight_penalty = -0.1 * abs(self.robot.GetBasePosition()[2] - 0.25)
+    # z_speed_penality = -0.5 * self.robot.GetBaseLinearVelocity()[2]**2
     
     # minimize energy 
     energy_reward = 0 
@@ -374,47 +390,47 @@ class QuadrupedGymEnv(gym.Env):
     for tau,vel in zip(self._dt_motor_torques,self._dt_motor_velocities):
       energy_reward += np.abs(np.dot(tau,vel)) * self._time_step
 
-    ### OBJECTIV AVOID CRAWLING AND ENCOURAGE STABLE GAITS (POSTURE REWARDS)
+    # ### OBJECTIV AVOID CRAWLING AND ENCOURAGE STABLE GAITS (POSTURE REWARDS)
 
     # Height penality
     h_min = 0.30
-    penality_low_height  = - 0.5 * max(0, h_min - self.robot.GetBasePosition()[2])**2
+    penality_low_height  = - 0.1 * max(0, h_min - self.robot.GetBasePosition()[2])**2
 
-    # Ecourage high swing phases and (later penalize foot dragging on the ground)
-    # r_foot_swing_height = 0
-    # p_foot_drag = 0
-    # _, _, _, feet_contact = self.robot.GetContactInfo()
+    # # Ecourage high swing phases and (later penalize foot dragging on the ground)
+    # # r_foot_swing_height = 0
     # # p_foot_drag = 0
-    # for i in range(4):
-    #   if feet_contact[i] == 0: # foot in swing
-    #     foot_pos = self.robot.ComputeJacobianAndPosition(i)[1]
-    #     r_foot_swing_height += 0.05 * foot_pos[2] # encourage high feet in swing
-    #   elif feet_contact[i] == 1: 
-    #     p_foot_drag -= 0.005  # no reward when foot is on ground
+    # # _, _, _, feet_contact = self.robot.GetContactInfo()
+    # # # p_foot_drag = 0
+    # # for i in range(4):
+    # #   if feet_contact[i] == 0: # foot in swing
+    # #     foot_pos = self.robot.ComputeJacobianAndPosition(i)[1]
+    # #     r_foot_swing_height += 0.05 * foot_pos[2] # encourage high feet in swing
+    # #   elif feet_contact[i] == 1: 
+    # #     p_foot_drag -= 0.005  # no reward when foot is on ground
     
-    ### Next idee : instead of penalizing foot contact, penalize either foot dragging, either when there is more than 2 feet on the ground and when there is less thant 2 feet 
+    # ### Next idee : instead of penalizing foot contact, penalize either foot dragging, either when there is more than 2 feet on the ground and when there is less thant 2 feet 
 
-    r_foot_swing_height = 0
+    # r_foot_swing_height = 0
     # h_clearance = 0.05 # desired minimum foot clearance height
-    p_foot_drag = 0
-    nb_contact, _, _, feet_contact = self.robot.GetContactInfo()
-    dq_all = self.robot.GetMotorVelocities()
-    dragging_thershold = 0.02
-    for i in range(4):
-      J_leg, foot_pos = self.robot.ComputeJacobianAndPosition(i)
-      if feet_contact[i] == 0:  # foot in swing
-        r_foot_swing_height += 0.1 * foot_pos[2]  # encourage high feet in swing
-        # if foot_pos[2] < h_clearance:
-        #     r_foot_swing_height -= 0.2 * (h_clearance - foot_pos[2])**2
-      else:  # foot in contact/stance -> check horizontal slip/drag
-        # foot linear velocity in leg frame (J @ joint_vels)
-        dq_leg = dq_all[3*i:3*i+3]
-        foot_vel = J_leg @ dq_leg
-        horizontal_foot_speed = np.linalg.norm(foot_vel[:2])
-        horizontal_robot_speed = np.linalg.norm(self.robot.GetBaseLinearVelocity()[:2])
-        dragging_speed = abs(horizontal_foot_speed - horizontal_robot_speed)
-        if dragging_speed > dragging_thershold:  # foot is dragging
-          p_foot_drag -= 0.05 * dragging_speed
+    # p_foot_drag = 0
+    # nb_contact, _, _, feet_contact = self.robot.GetContactInfo()
+    # dq_all = self.robot.GetMotorVelocities()
+    # dragging_thershold = 0.02
+    # for i in range(4):
+    #   J_leg, foot_pos = self.robot.ComputeJacobianAndPosition(i)
+    #   if feet_contact[i] == 0:  # foot in swing
+    #     r_foot_swing_height += 0.15 * foot_pos[2]  # encourage high feet in swing
+    #     if foot_pos[2] < h_clearance:
+    #         r_foot_swing_height -= 0.1 * (h_clearance - foot_pos[2])**2
+    #   else:  # foot in contact/stance -> check horizontal slip/drag
+    #     # foot linear velocity in leg frame (J @ joint_vels)
+    #     dq_leg = dq_all[3*i:3*i+3]
+    #     foot_vel = J_leg @ dq_leg
+    #     horizontal_foot_speed = np.linalg.norm(foot_vel[:2])
+    #     horizontal_robot_speed = np.linalg.norm(self.robot.GetBaseLinearVelocity()[:2])
+    #     dragging_speed = abs(horizontal_foot_speed - horizontal_robot_speed)
+    #     if dragging_speed > dragging_thershold:  # foot is dragging
+    #       p_foot_drag -= 0.05 * dragging_speed
 
     # p_nb_contact = -0.01 * abs(nb_contact-2)
 
@@ -426,10 +442,7 @@ class QuadrupedGymEnv(gym.Env):
             + drift_reward \
             - 0.01 * energy_reward \
             - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1])) \
-            + z_speed_penality \
             + penality_low_height \
-            + r_foot_swing_height \
-            + p_foot_drag
             # - 0.01 * sym_pen
 
     return max(reward,0) # keep rewards positive

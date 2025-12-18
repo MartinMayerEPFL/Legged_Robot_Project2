@@ -50,7 +50,7 @@ from utils.file_utils import get_latest_model
 from env.quadruped_gym_env import QuadrupedGymEnv
 
 LEARNING_ALG = "PPO" # "PPO" or "SAC"
-LOAD_NN = False # if you want to initialize training with a previous model 
+LOAD_NN = True # if you want to initialize training with a previous model 
 NUM_ENVS = 16    # how many pybullet environments to create for data collection
 USE_GPU = False # make sure to install all necessary drivers 
 
@@ -67,7 +67,7 @@ else:
 
 if LOAD_NN:
     interm_dir = "./logs/intermediate_models/"
-    log_dir = interm_dir + '121625151756' # add path
+    log_dir = interm_dir + '121825114910' # add path
     stats_path = os.path.join(log_dir, "vec_normalize.pkl")
     model_name = get_latest_model(log_dir)
 
@@ -96,7 +96,7 @@ policy_kwargs = dict(net_arch=[256,256]) # act_fun=tf.nn.tanh
 # What are these hyperparameters? Check here: https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html
 n_steps = 4096 
 
-lr_start = 5e-4
+lr_start = 1e-4
 lr_end = 1e-4
 
 learning_rate = lambda f: lr_start + f * (lr_end - lr_start)

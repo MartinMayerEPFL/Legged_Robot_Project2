@@ -402,7 +402,7 @@ class QuadrupedGymEnv(gym.Env):
     for i in range(4):
       J_leg, foot_pos = self.robot.ComputeJacobianAndPosition(i)
       if feet_contact[i] == 0:  # foot in swing
-        r_foot_swing_height += 0.05 * foot_pos[2]  # encourage high feet in swing
+        r_foot_swing_height += 0.05 * (foot_pos[2]+0.26)  # encourage high feet in swing
       else:  # foot in contact/stance -> check horizontal slip/drag
         # foot linear velocity in leg frame (J @ joint_vels)
         dq_leg = dq_all[3*i:3*i+3]

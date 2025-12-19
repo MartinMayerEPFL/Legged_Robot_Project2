@@ -57,7 +57,8 @@ USE_GPU = False # make sure to install all necessary drivers
 # after implementing, you will want to test how well the agent learns with your MDP: 
 env_configs = {"motor_control_mode":"PD", # or "PD" or "CARTESIAN_PD" or "TORQUE"
                 "task_env": "FWD_LOCOMOTION", #  "LR_COURSE_TASK",
-                "observation_space_mode": "LR_COURSE_OBS"} # "LR_COURSE_OBS" or "DEFAULT" Faites par le prof
+                "observation_space_mode": "LR_COURSE_OBS", # "LR_COURSE_OBS" or "DEFAULT" Faites par le prof
+                "terrain": "SLOPES"} # "FLAT" or "SLOPES" or "RANDOM_HILLS"
 #env_configs = {}
 
 if USE_GPU and LEARNING_ALG=="SAC":
@@ -67,7 +68,7 @@ else:
 
 if LOAD_NN:
     interm_dir = "./logs/intermediate_models/"
-    log_dir = interm_dir + '121625151756' # add path
+    log_dir = interm_dir + '121925201533' # add path
     stats_path = os.path.join(log_dir, "vec_normalize.pkl")
     model_name = get_latest_model(log_dir)
 
@@ -96,12 +97,12 @@ policy_kwargs = dict(net_arch=[256,256]) # act_fun=tf.nn.tanh
 # What are these hyperparameters? Check here: https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html
 n_steps = 4096 
 
-lr_start = 1e-3
-lr_end = 1e-4
+lr_start = 1e-4
+lr_end = 8e-5
 
 learning_rate = lambda f: lr_end * (lr_start / lr_end) ** f
 
-ppo_config = {  "gamma":0.95, 
+ppo_config = {  "gamma":0.99, 
                 "n_steps": int(n_steps/NUM_ENVS), 
                 "ent_coef":0.0, 
                 "learning_rate":learning_rate, 
@@ -150,7 +151,7 @@ if LOAD_NN:
     print("\nLoaded model", model_name, "\n")
 
 # Learn and save (may need to train for longer)
-model.learn(total_timesteps=1000000, log_interval=1,callback=checkpoint_callback)
+model.learn(total_timesteps=250000, log_interval=1,callback=checkpoint_callback)
 
 # Don't forget to save the VecNormalize statistics when saving the agent
 model.save( os.path.join(SAVE_PATH, "rl_model" ) ) 

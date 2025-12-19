@@ -99,9 +99,9 @@ n_steps = 4096
 lr_start = 10e-5
 lr_end = 8e-5
 
-learning_rate = lambda f: lr_start + f * (lr_end - lr_start)
+learning_rate = lambda f: lr_start + f * (lr_end - lr_start) # linear schedule
 
-ppo_config = {  "gamma":0.95, 
+ppo_config = {  "gamma":0.99, 
                 "n_steps": int(n_steps/NUM_ENVS), 
                 "ent_coef":0.0, 
                 "learning_rate":learning_rate, 

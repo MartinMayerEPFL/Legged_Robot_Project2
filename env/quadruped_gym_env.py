@@ -347,20 +347,12 @@ class QuadrupedGymEnv(gym.Env):
     """Decide whether we should stop the episode and reset the environment. """
     return self.is_fallen() 
   
-  ### FLO ADDED CHAT INDUCED
   def _symmetry_penalty(self):
     """Return a scalar penalty proportional to asymmetry between diagonal foot positions.
     Diagonal pairs used: (0,3) and (1,2). Fallback to joint-angle difference if IK unavailable.
     """
-    penalty = 0.0
-    # Compare joint angles for each diagonal pair
-    q = self.robot.GetMotorAngles()
-    for i,j in [(0,3),(1,2)]:
-      qi = np.array(q[3*i:3*i+3])
-      qj = np.array(q[3*j:3*j+3])
-      penalty -= np.linalg.norm(qi - qj)
+
     return penalty
-  ##########################################################################################
 
   def _reward_fwd_locomotion(self, des_vel_x=None):
     """Learn forward locomotion at a desired velocity. """
@@ -374,7 +366,7 @@ class QuadrupedGymEnv(gym.Env):
     # don't drift laterally 
     drift_reward = -0.01 * abs(self.robot.GetBasePosition()[1])
 
-    # # hight_penalty = -0.1 * abs(self.robot.GetBasePosition()[2] - 0.25)
+    # Speed in z direction penalty (encourage stable height)
     # z_speed_penality = -0.5 * self.robot.GetBaseLinearVelocity()[2]**2
     
     # minimize energy 
@@ -389,34 +381,28 @@ class QuadrupedGymEnv(gym.Env):
     h_min = 0.30
     penality_low_height  = - 0.1 * max(0, h_min - self.robot.GetBasePosition()[2])**2
 
-    # # Ecourage high swing phases and (later penalize foot dragging on the ground)
-    # # r_foot_swing_height = 0
-    # # p_foot_drag = 0
-    # # _, _, _, feet_contact = self.robot.GetContactInfo()
-    # # # p_foot_drag = 0
-    # # for i in range(4):
-    # #   if feet_contact[i] == 0: # foot in swing
-    # #     foot_pos = self.robot.ComputeJacobianAndPosition(i)[1]
-    # #     r_foot_swing_height += 0.05 * foot_pos[2] # encourage high feet in swing
-    # #   elif feet_contact[i] == 1: 
-    # #     p_foot_drag -= 0.005  # no reward when foot is on ground
-    
-    # ### Next idee : instead of penalizing foot contact, penalize either foot dragging, either when there is more than 2 feet on the ground and when there is less thant 2 feet 
+    # Foot clearance reward and dragging penality
 
     # r_foot_swing_height = 0
-    # h_clearance = 0.05 # desired minimum foot clearance height
     # p_foot_drag = 0
     # nb_contact, _, _, feet_contact = self.robot.GetContactInfo()
     # dq_all = self.robot.GetMotorVelocities()
-    # dragging_thershold = 0.02
+    # desired_clearance = 0.05   # lift ~5 cm above nominal stance height
+    # sigma_clearance = 0.02     # sharper peak around target
+    # dragging_thershold = 0.02  # m/s befiore we consider foot is dragging
+
     # for i in range(4):
-    #   J_leg, foot_pos = self.robot.ComputeJacobianAndPosition(i)
-    #   if feet_contact[i] == 0:  # foot in swing
-    #     r_foot_swing_height += 0.1 * foot_pos[2]  # encourage high feet in swing
-    #     # if foot_pos[2] < h_clearance:
-    #     #     r_foot_swing_height -= 0.01 * (h_clearance - foot_pos[2])**2
-    #   else:  # foot in contact/stance -> check horizontal slip/drag
-    #     # foot linear velocity in leg frame (J @ joint_vels)
+    #   J_leg, foot_pos_leg = self.robot.ComputeJacobianAndPosition(i)
+    #   if feet_contact[i] == 0:
+
+    #     swing_height = -foot_pos_leg[2]  # distance below hip (positive)
+    #     nominal_height = -self._robot_config.NOMINAL_FOOT_POS_LEG_FRAME[3*i  + 2]
+    #     target_height = max(nominal_height - desired_clearance, 0.0)
+    #     clearance_err = swing_height - target_height  # positive if too low (not lifted enough)
+    #     clearance_shape = np.exp(-0.5 * (clearance_err / sigma_clearance)**2)
+    #     r_foot_swing_height += 0.01 * clearance_shape
+
+    #   else:  # foot in stance phase
     #     dq_leg = dq_all[3*i:3*i+3]
     #     foot_vel = J_leg @ dq_leg
     #     horizontal_foot_speed = np.linalg.norm(foot_vel[:2])
@@ -425,10 +411,16 @@ class QuadrupedGymEnv(gym.Env):
     #     if dragging_speed > dragging_thershold:  # foot is dragging
     #       p_foot_drag -= 0.01 * dragging_speed
 
-    # p_nb_contact = -0.01 * abs(nb_contact-2)
+    # symmetry penalty to encourage trot gaits
+    sym_pen = 0
 
-    # symmetry penalty
-    sym_pen = self._symmetry_penalty()
+    # Compare joint angles for each diagonal pair
+    q = self.robot.GetMotorAngles()
+
+    for i,j in [(0,3),(1,2)]:
+      qi = np.array(q[3*i:3*i+3])
+      qj = np.array(q[3*j:3*j+3])
+      sym_pen -= np.linalg.norm(qi - qj) # growing large as soon as only one actuator is a lot different
   
     reward = vel_tracking_reward \
             + yaw_reward \

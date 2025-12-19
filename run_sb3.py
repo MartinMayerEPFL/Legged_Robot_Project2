@@ -58,6 +58,7 @@ USE_GPU = False # make sure to install all necessary drivers
 env_configs = {"motor_control_mode":"CARTESIAN_PD", # or "PD" or "CARTESIAN_PD" or "TORQUE"
                 "task_env": "LR_COURSE_TASK", #  "LR_COURSE_TASK", FWD_LOCOMOTION
                 "observation_space_mode": "LR_COURSE_OBS",
+                "terrain" : "SLOPES", # FLAT, SLOPES, ROUGH
                 #"add_noise": True,
                 } # "LR_COURSE_OBS" or "DEFAULT" Faites par le prof
 #env_configs = {}
@@ -69,7 +70,7 @@ else:
 
 if LOAD_NN:
     interm_dir = "./logs/intermediate_models/"
-    log_dir = interm_dir + '121925161743' # add path
+    log_dir = interm_dir + '121925175147_martin' # add path
     stats_path = os.path.join(log_dir, "vec_normalize.pkl")
     model_name = get_latest_model(log_dir)
 
@@ -147,7 +148,7 @@ if LOAD_NN:
     print("\nLoaded model", model_name, "\n")
 
 # Learn and save (may need to train for longer)
-model.learn(total_timesteps=500000, log_interval=1,callback=checkpoint_callback) #Total Training Step : 1000000
+model.learn(total_timesteps=250000, log_interval=1,callback=checkpoint_callback) #Total Training Step : 1000000
 
 # Don't forget to save the VecNormalize statistics when saving the agent
 model.save( os.path.join(SAVE_PATH, "rl_model" ) ) 

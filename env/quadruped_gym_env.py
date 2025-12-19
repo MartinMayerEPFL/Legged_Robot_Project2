@@ -474,12 +474,12 @@ class QuadrupedGymEnv(gym.Env):
     reward = vel_tracking_reward \
             + yaw_reward \
             + drift_reward \
-            - 0.03 * energy_reward \
+            - 0.05 * energy_reward \
             - 0.1 * invalide_contact \
             - 0.1 * high_penalty \
             - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1])) \
-            + 0.05 * swing_clearance_bonus\
-            #- 0.02 * slip_penalty
+            + 0.08 * swing_clearance_bonus\
+            - 0.03 * slip_penalty
 
     return max(reward,0) # keep rewards positive
 

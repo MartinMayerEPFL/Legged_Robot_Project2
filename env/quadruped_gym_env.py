@@ -459,7 +459,7 @@ class QuadrupedGymEnv(gym.Env):
 
     # Encourage swing legs to lift the foot with a smooth bonus around a target clearance
     swing_clearance_bonus = 0.0
-    target_swing_clearance = 0.08  # desired hip-to-foot distance in swing (m)
+    target_swing_clearance = 0.06  # desired hip-to-foot distance in swing (m)
     sigma_clearance = 0.03        # how sharp the peak is around the target
     for leg_id in range(4):
       if feet_contact[leg_id] == 0:
@@ -475,10 +475,10 @@ class QuadrupedGymEnv(gym.Env):
             + drift_reward \
             - 0.03 * energy_reward \
             - 0.1 * invalide_contact \
-            - 0.15 * high_penalty \
+            - 0.1 * high_penalty \
             - 0.1 * np.linalg.norm(self.robot.GetBaseOrientation() - np.array([0,0,0,1])) \
-            + 0.03 * swing_clearance_bonus
-            #- 0.05 * slip_penalty \
+            + 0.05 * swing_clearance_bonus\
+            #- 0.02 * slip_penalty
 
     return max(reward,0) # keep rewards positive
 

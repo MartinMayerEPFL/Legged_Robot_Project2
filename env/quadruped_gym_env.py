@@ -457,17 +457,18 @@ class QuadrupedGymEnv(gym.Env):
         foot_vel_world = np.array(link_state[6])  # linear velocity in world frame
         slip_penalty += np.linalg.norm(foot_vel_world[:2])  # horizontal speed in world frame
 
-    # Encourage swing legs to lift the foot with a smooth bonus around a target clearance
+    # Encourage swing legs to lift the foot relative to nominal stance height (leg frame)
     swing_clearance_bonus = 0.0
-    target_swing_clearance = 0.06  # desired hip-to-foot distance in swing (m)
-    sigma_clearance = 0.03        # how sharp the peak is around the target
+    desired_clearance = 0.05   # lift ~5 cm above nominal stance height
+    sigma_clearance = 0.02     # sharper peak around target
     for leg_id in range(4):
       if feet_contact[leg_id] == 0:
         _, foot_pos_leg = self.robot.ComputeJacobianAndPosition(leg_id)
-        swing_height = -foot_pos_leg[2]  # positive distance below hip
-        # smooth shaping: maximize near target_swing_clearance, smaller if too low or too high
-        rel_height = np.clip(swing_height / target_swing_clearance, 0.0, 2.0)
-        clearance_shape = rel_height * np.exp(-0.5 * ((swing_height - target_swing_clearance) / sigma_clearance)**2)
+        swing_height = -foot_pos_leg[2]  # distance below hip (positive)
+        nominal_height = -self._robot_config.NOMINAL_FOOT_POS_LEG_FRAME[3*leg_id + 2]
+        target_height = max(nominal_height - desired_clearance, 0.0)
+        clearance_err = swing_height - target_height  # positive if too low (not lifted enough)
+        clearance_shape = np.exp(-0.5 * (clearance_err / sigma_clearance)**2)
         swing_clearance_bonus += clearance_shape
 
     reward = vel_tracking_reward \
